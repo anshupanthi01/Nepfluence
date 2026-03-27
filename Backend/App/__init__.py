@@ -1,0 +1,1 @@
+from App.models import *  # optional; not required, but fine if you want
