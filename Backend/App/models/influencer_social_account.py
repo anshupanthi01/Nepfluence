@@ -25,12 +25,15 @@ class InfluencerSocialAccount(Base):
     )
 
     platform: Mapped[SocialPlatform] = mapped_column(Enum(SocialPlatform, name="social_platform"), nullable=False)
+
     platform_user_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
     username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     access_token_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     follower_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
     avg_engagement_rate: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
 
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

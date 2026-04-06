@@ -25,7 +25,9 @@ class CampaignApplication(Base):
     )
 
     quoted_price: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    
     ai_match_score: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+
     application_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     status: Mapped[ApplicationStatus] = mapped_column(
@@ -36,10 +38,18 @@ class CampaignApplication(Base):
     )
 
     accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     campaign: Mapped["Campaign"] = relationship(back_populates="applications")
+
     influencer: Mapped["InfluencerProfile"] = relationship(back_populates="applications")
+
+    submissions = relationship(
+    "CampaignSubmission",
+    back_populates="application",
+    cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         UniqueConstraint("campaign_id", "influencer_id", name="uq_campaign_application_campaign_influencer"),

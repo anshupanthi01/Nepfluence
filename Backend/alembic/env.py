@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from logging.config import fileConfig
-
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from dotenv import load_dotenv
@@ -30,7 +30,7 @@ if config.config_file_name is not None:
 # Import your SQLAlchemy Base + import models so they register
 # ------------------------------------------------------------
 from App.models.base import Base  # noqa: E402
-from App import models    # noqa: F401, E402  (import side-effect: registers all models)
+from App.models import *   # noqa: F401, E402  (import side-effect: registers all models)
 
 target_metadata = Base.metadata
 

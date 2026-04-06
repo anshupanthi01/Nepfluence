@@ -50,13 +50,7 @@ def init_db():
     This imports all models and creates their tables in the database.
     Safe to call multiple times (won't recreate existing tables).
     """
-    # Import all models to register them with Base
-    # from App.models.product import Product
-    # from App.models.supplier import Supplier
-    # from App.models.category import Category
-    # from App.models.user import User
-    # from App.models.inventory_transaction import InventoryTransaction
-    # from App.models.sale import Sale, SaleItem
+
     from App import models
     # Create all tables
     Base.metadata.create_all(bind=engine)

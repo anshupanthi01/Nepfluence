@@ -33,18 +33,23 @@ class Campaign(Base):
     )
 
     title: Mapped[str] = mapped_column(String, nullable=False)
+
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     niche_tags: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String), nullable=True)
+
     target_platforms: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String), nullable=True)
 
     min_followers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     max_followers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     budget_total: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+
     budget_per_slot: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
 
     max_slots: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+
     slots_filled: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
 
     status: Mapped[CampaignStatus] = mapped_column(
@@ -57,14 +62,23 @@ class Campaign(Base):
     application_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
     brand: Mapped["BrandProfile"] = relationship(back_populates="campaigns")
+
     applications: Mapped[List["CampaignApplication"]] = relationship(
         back_populates="campaign", cascade="all, delete-orphan"
     )
+    
+    deliverables: Mapped[List["CampaignDeliverable"]] = relationship(
+        "CampaignDeliverable",
+        back_populates="campaign",
+        cascade="all, delete-orphan"
+    )
+
     messages: Mapped[List["CampaignMessage"]] = relationship(
         back_populates="campaign", cascade="all, delete-orphan"
     )
