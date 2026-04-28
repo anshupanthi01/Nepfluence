@@ -30,7 +30,7 @@ class Deliverable(str,enum.Enum):
     yt_video='yt_video'
     shorts='shorts'
 
-class SubmissionStatus(enum.Enum):
+class SubmissionStatus(str,enum.Enum):
     under_review = "under_review"
     approved = "approved"
     revision_requested = "revision_requested"

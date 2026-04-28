@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-from .enums import SocialPlatform
+from .enums import SocialPlatform 
 
 
 class InfluencerSocialAccount(Base):
