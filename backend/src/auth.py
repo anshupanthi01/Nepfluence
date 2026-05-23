@@ -8,13 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import hashlib
 import secrets
-from src.config import settings  # Fixed: Added 'src.' prefix
-from src.database import get_db   # Fixed: Added 'src.' prefix
-from src.users import model_user  # Fixed: Changed from 'import models' to 'from src.users import model_user'
+from src.config import settings  
+from src.database import get_db   
+from src.users import model_user  
 
 password_hash = PasswordHash.recommended()
 
-# Fixed: Changed tokenUrl to match your route
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 
 def hash_password(password: str) -> str:
@@ -29,13 +28,13 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         expire = datetime.now(UTC) + expires_delta
     else:
         expire = datetime.now(UTC) + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES  # Fixed: uppercase to match your config
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES  
         )
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.SECRET_KEY.get_secret_value(),  # Fixed: uppercase to match your config
-        algorithm=settings.ALGORITHM  # Fixed: uppercase to match your config
+        settings.SECRET_KEY.get_secret_value(),  
+        algorithm=settings.ALGORITHM  
     )
     return encoded_jwt
 
@@ -43,8 +42,8 @@ def verify_access_token(token: str) -> str | None:
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY.get_secret_value(),  # Fixed: uppercase
-            algorithms=[settings.ALGORITHM],  # Fixed: uppercase
+            settings.SECRET_KEY.get_secret_value(),  
+            algorithms=[settings.ALGORITHM],  
             options={"require": ['exp', 'sub']}
         )
     except jwt.InvalidTokenError:
@@ -61,7 +60,7 @@ def hash_reset_token(token: str) -> str:
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     db: Annotated[AsyncSession, Depends(get_db)]
-) -> model_user.User:  # Fixed: Changed from 'models.User' to 'model_user.User'
+) -> model_user.User:  
     user_id = verify_access_token(token)
     if user_id is None:
         raise HTTPException(
@@ -79,7 +78,7 @@ async def get_current_user(
         )
     
     result = await db.execute(
-        select(model_user.User).where(model_user.User.id == user_id_int)  # Fixed: Changed from 'models.User' to 'model_user.User'
+        select(model_user.User).where(model_user.User.id == user_id_int)  
     )
     user = result.scalars().first()
     if not user:
@@ -90,4 +89,4 @@ async def get_current_user(
         )
     return user
 
-CurrentUser = Annotated[model_user.User, Depends(get_current_user)]  # Fixed: Changed from 'models.User' to 'model_user.User'
+CurrentUser = Annotated[model_user.User, Depends(get_current_user)]  

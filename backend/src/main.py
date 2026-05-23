@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from src.database import engine, Base
 from src.users import router
+from src.brand_profile.routes import router as brand_router
 
 # Create database tables on startup
 @asynccontextmanager
@@ -34,6 +35,7 @@ app.add_middleware(
 
 # Include user router
 app.include_router(router,prefix="/api/users", tags=["users"])
+app.include_router(brand_router)
 
 @app.get("/")
 async def root():
