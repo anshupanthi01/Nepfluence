@@ -62,24 +62,6 @@ async def create_my_brand_profile(
     return await crud.create_for_user(db, current_user.id, payload)
 
 
-@router.patch("/me", response_model=BrandProfilePublic)
-async def update_my_brand_profile(
-    payload: BrandProfileUpdate,
-    current_user: CurrentUser,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    _require_brand_user(current_user)
-
-    brand_profile = await crud.get_by_user_id(db, current_user.id)
-    if not brand_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Brand profile not found",
-        )
-
-    return await crud.update_for_user(db, brand_profile, payload)
-
-
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_brand_profile(
     current_user: CurrentUser,
@@ -96,3 +78,21 @@ async def delete_my_brand_profile(
 
     await crud.delete_for_user(db, brand_profile)
     return None
+
+
+@router.patch("/me", response_model=BrandProfilePublic)
+async def update_my_brand_profile(
+    payload: BrandProfileUpdate,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    _require_brand_user(current_user)
+
+    brand_profile = await crud.get_by_user_id(db, current_user.id)
+    if not brand_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Brand profile not found",
+        )
+
+    return await crud.update_for_user(db, brand_profile, payload)
