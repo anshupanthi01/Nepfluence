@@ -16,3 +16,8 @@ class InfluencerNiche(str, enum.Enum):
     NEWS = "news"
     AUTOMOTIVE = "automotive"
     OTHER = "other"
+
+class SocialPlatform(str, enum.Enum):
+    instagram = "instagram"
+    youtube = "youtube"
+    tiktok = "tiktok"

@@ -57,11 +57,6 @@ class InfluencerProfile(Base):
     )
 
 
-class SocialPlatform(str, enum.Enum):
-    instagram = "instagram"
-    youtube = "youtube"
-    tiktok = "tiktok"
-
 
 class SocialAccount(Base):
     __tablename__ = "social_accounts"
