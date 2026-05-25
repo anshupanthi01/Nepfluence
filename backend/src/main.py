@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from src.database import engine, Base
 from src.users import router
 from src.brand_profile.routes import router as brand_router
+# src/influencer_profile/__init__.py
+from src.influencer_profile.routes import router as influencer_router
 
 # Create database tables on startup
 @asynccontextmanager
@@ -36,6 +38,7 @@ app.add_middleware(
 # Include user router
 app.include_router(router,prefix="/api/users", tags=["users"])
 app.include_router(brand_router)
+app.include_router(influencer_router) 
 
 @app.get("/")
 async def root():

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import enum
-
 from sqlalchemy import (
     String,
     Integer,
@@ -9,14 +7,14 @@ from sqlalchemy import (
     Text,
     Boolean,
     ForeignKey,
-    Enum,
+    Enum as SAEnum,
     BigInteger
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List, TYPE_CHECKING
 
 from src.database import Base
-from src.influencer_profile.enums import InfluencerNiche
+from src.influencer_profile.enums import InfluencerNiche, SocialPlatform
 
 if TYPE_CHECKING:
     from users.model_user import User
@@ -39,7 +37,7 @@ class InfluencerProfile(Base):
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     niche: Mapped[InfluencerNiche] = mapped_column(
-        Enum(InfluencerNiche),
+        SAEnum(InfluencerNiche, name="influencer_niche"),
         nullable=False,
         index=True,
     )
@@ -70,7 +68,7 @@ class SocialAccount(Base):
     )
 
     platform: Mapped[SocialPlatform] = mapped_column(
-        Enum(SocialPlatform, name="social_platform"),
+        SAEnum(SocialPlatform, name="social_platform"),
         nullable=False,
         index=True,
     )
@@ -100,6 +98,7 @@ class SocialAccount(Base):
     total_views: Mapped[int] = mapped_column(
         BigInteger,
         default=0,
+        nullable=False
     )
 
     total_videos: Mapped[int] = mapped_column(
