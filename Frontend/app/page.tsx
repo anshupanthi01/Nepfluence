@@ -1,10 +1,12 @@
-import HeroSection from "./components/HeroSection"
-import HowItWorks from "./components/HowItWork"
-import StatsSection from "./components/StatsSection"
+import HeroSection from "../features/home/HeroSection"
+import HowItWorks from "../features/home/HowItWork"
+import StatsSection from "../features/home/StatsSection"
+import Navbar from "@/components/Layout/Navbar"
 
 export default function HomePage() {
   return (
     <main>
+      <Navbar />
       <HeroSection />
       <HowItWorks />
       <StatsSection />
