@@ -1,10 +1,21 @@
 from __future__ import annotations
 from datetime import UTC,datetime
-from sqlalchemy import DateTime,ForeignKey,Integer,String,Text,func,Enum,Boolean
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+    Enum,
+    Boolean
+)
 from sqlalchemy.orm import mapped_column,Mapped,relationship
 from typing import List,Optional,TYPE_CHECKING
 import enum
+
 from src.database import Base
+
 if TYPE_CHECKING:
     from users.model_user import User
 class BrandProfile(Base):

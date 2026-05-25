@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     SECRET_KEY: SecretStr
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    DATABASE_URL: str
     
     # File Upload
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024
