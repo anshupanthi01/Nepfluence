@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import enum
-import uuid
-from datetime import datetime
 
 from sqlalchemy import (
     String,
@@ -10,12 +8,10 @@ from sqlalchemy import (
     Numeric,
     Text,
     Boolean,
-    DateTime,
     ForeignKey,
-    func,
     Enum,
+    BigInteger
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List, TYPE_CHECKING
 
@@ -84,12 +80,52 @@ class SocialAccount(Base):
         index=True,
     )
 
-    username: Mapped[str] = mapped_column(String(100), nullable=False)
+    youtube_channel_id: Mapped[str] = mapped_column(
+        String(200),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
 
-    follower_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    youtube_handle: Mapped[str | None] = mapped_column(
+        String(120),
+        nullable=True,
+    )
 
-    total_views: Mapped[float] = mapped_column(Numeric(5, 2), default=0, nullable=False)
+    youtube_channel_name: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
 
-    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    subscribers_count: Mapped[int] = mapped_column(
+        BigInteger,
+        default=0,
+    )
+
+    total_views: Mapped[int] = mapped_column(
+        BigInteger,
+        default=0,
+    )
+
+    total_videos: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+    )
+
+    average_views: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+    )
+
+    engagement_rate: Mapped[float | None] = mapped_column(
+        Numeric(5, 2), 
+        nullable=True,
+    )
+
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
     influencer = relationship("InfluencerProfile", back_populates="social_accounts")

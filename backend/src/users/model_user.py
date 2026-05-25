@@ -1,12 +1,14 @@
 from __future__ import annotations
-from datetime import UTC,datetime
-from sqlalchemy import DateTime,ForeignKey,Integer,String,Text,func,Enum,Boolean
-from sqlalchemy.orm import mapped_column,Mapped,relationship
-from typing import List,Optional,TYPE_CHECKING
+from datetime import UTC, datetime
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func, Enum, Boolean
+from sqlalchemy.orm import mapped_column, Mapped, relationship
+from typing import List, Optional, TYPE_CHECKING
 import enum
 from src.database import Base
+
 if TYPE_CHECKING:
     from brand_profile.models import BrandProfile
+    from src.influencer_profile.models import InfluencerProfile 
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     INFLUENCER="influencer"
@@ -40,6 +42,12 @@ class User(Base):
     back_populates="user",
     uselist=False,
     cascade="all, delete-orphan",
+    )
+    influencer_profile: Mapped["InfluencerProfile"] = relationship(
+        "InfluencerProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     @property
     def image_path(self)->str:
