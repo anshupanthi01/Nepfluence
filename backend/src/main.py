@@ -6,7 +6,7 @@ from src.users import router
 from src.brand_profile.routes import router as brand_router
 # src/influencer_profile/__init__.py
 from src.influencer_profile.routes import router as influencer_router
-
+from src.campaign.routes import router as campaign_router
 # Create database tables on startup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,6 +39,7 @@ app.add_middleware(
 app.include_router(router,prefix="/api/users", tags=["users"])
 app.include_router(brand_router)
 app.include_router(influencer_router) 
+app.include_router(campaign_router)
 
 @app.get("/")
 async def root():

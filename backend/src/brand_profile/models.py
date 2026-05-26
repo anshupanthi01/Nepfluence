@@ -18,6 +18,7 @@ from src.database import Base
 
 if TYPE_CHECKING:
     from users.model_user import User
+    from campaign.models import Campaign
 class BrandProfile(Base):
     __tablename__ = "brand_profiles"
 
@@ -65,3 +66,4 @@ class BrandProfile(Base):
         back_populates="brand_profile",
         uselist=False
     )
+    posts:Mapped[list[Campaign]]=relationship("Campaign",back_populates="brand_profile",cascade="all,delete-orphan")
