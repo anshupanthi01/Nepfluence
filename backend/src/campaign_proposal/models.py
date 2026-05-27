@@ -56,5 +56,5 @@ class CampaignProposal(Base):
         nullable=False,
     )
 
-    campaign: Mapped["Campaign"] = relationship("Campaign")
-    influencer_profile: Mapped["InfluencerProfile"] = relationship("InfluencerProfile")
+    campaign: Mapped["Campaign"] = relationship("Campaign", back_populates="proposals")
+    influencer_profile: Mapped["InfluencerProfile"] = relationship("InfluencerProfile", back_populates="proposals")

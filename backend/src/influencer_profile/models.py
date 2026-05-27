@@ -18,7 +18,7 @@ from src.influencer_profile.enums import InfluencerNiche, SocialPlatform
 
 if TYPE_CHECKING:
     from users.model_user import User
-
+    from src.campaign_proposal.models import CampaignProposal
 
 class InfluencerProfile(Base):
     __tablename__ = "influencer_profiles"
@@ -53,6 +53,11 @@ class InfluencerProfile(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    proposals: Mapped[list["CampaignProposal"]] = relationship(
+    "CampaignProposal",
+    back_populates="influencer_profile",
+    cascade="all,delete-orphan",
+)
 
 
 

@@ -11,7 +11,7 @@ from src.campaign.enums import CampaignStatus
 
 if TYPE_CHECKING:
     from src.brand_profile.models import BrandProfile
-
+    from src.campaign_proposal.models import CampaignProposal
 
 class Campaign(Base):
     __tablename__ = "campaigns"
@@ -49,3 +49,9 @@ class Campaign(Base):
         if self.image_file:
             return f"/media/brand_post/{self.image_file}"
         return "kei xaina"
+    
+    proposals: Mapped[list["CampaignProposal"]] = relationship(
+    "CampaignProposal",
+    back_populates="campaign",
+    cascade="all,delete-orphan",
+)
