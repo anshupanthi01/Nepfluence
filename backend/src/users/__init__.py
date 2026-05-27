@@ -1,17 +1,15 @@
-from src.users.routes_user import router
-from src.users.model_user import User
-from src.users.schema_user import (
-    UserBase, UserCreate, UserPublic, UserPrivate, UserUpdate, Token, UserRole
-)
+from src.users.routes import router
+from src.users.model import User, UserRole
+from src.users.schema import UserBase, UserCreate, UserPublic, UserPrivate, UserUpdate, Token
 
 __all__ = [
     "router",
     "User",
+    "UserRole",
     "UserBase",
-    "UserCreate", 
+    "UserCreate",
     "UserPublic",
     "UserPrivate",
     "UserUpdate",
     "Token",
-    "UserRole"
 ]

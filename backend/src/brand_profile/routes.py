@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.auth import CurrentUser
-from src.users.model_user import UserRole
+from src.users.model import UserRole
 from src.brand_profile import crud
 from src.brand_profile.schemas import (
     BrandProfileCreate,

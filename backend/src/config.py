@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     MAIL_PASSWORD: SecretStr = SecretStr("")
     MAIL_FROM: str = "noreply@nepfluence.com"
     MAIL_USE_TLS: bool = True
+
+    # add these inside Settings class
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
     
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:3000"  # React/Vite default port

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentUser
 from src.database import get_db
-from src.users.model_user import UserRole
+from src.users.model import UserRole
 from src.brand_profile.models import BrandProfile
 from src.campaign import crud
 from src.campaign.enums import CampaignStatus
@@ -164,10 +164,10 @@ async def upload_campaign_picture(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     content = await file.read()
-    if len(content) > settings.max_upload_size_bytes:
+    if len(content) > settings.MAX_UPLOAD_SIZE_BYTES:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size is {settings.max_upload_size_bytes//(1024*1024)}MB",
+            detail=f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE_BYTES//(1024*1024)}MB",
         )
 
     try:

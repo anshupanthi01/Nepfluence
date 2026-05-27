@@ -17,7 +17,7 @@ from src.database import Base
 from src.influencer_profile.enums import InfluencerNiche, SocialPlatform
 
 if TYPE_CHECKING:
-    from users.model_user import User
+    from src.users.model import User
     from src.campaign_proposal.models import CampaignProposal
 
 class InfluencerProfile(Base):

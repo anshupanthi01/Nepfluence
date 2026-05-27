@@ -10,7 +10,7 @@ import hashlib
 import secrets
 from src.config import settings  
 from src.database import get_db   
-from src.users import model_user  
+from src.users import model  
 
 password_hash = PasswordHash.recommended()
 
@@ -60,7 +60,7 @@ def hash_reset_token(token: str) -> str:
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     db: Annotated[AsyncSession, Depends(get_db)]
-) -> model_user.User:  
+) -> model.User:  
     user_id = verify_access_token(token)
     if user_id is None:
         raise HTTPException(
@@ -78,7 +78,7 @@ async def get_current_user(
         )
     
     result = await db.execute(
-        select(model_user.User).where(model_user.User.id == user_id_int)  
+        select(model.User).where(model.User.id == user_id_int)  
     )
     user = result.scalars().first()
     if not user:
@@ -89,4 +89,4 @@ async def get_current_user(
         )
     return user
 
-CurrentUser = Annotated[model_user.User, Depends(get_current_user)]  
+CurrentUser = Annotated[model.User, Depends(get_current_user)]  

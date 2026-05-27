@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentUser
 from src.database import get_db
-from src.users.model_user import UserRole
+from src.users.model import UserRole
 from src.brand_profile.models import BrandProfile
 from src.campaign.models import Campaign
 from src.campaign.enums import CampaignStatus

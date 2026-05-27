@@ -17,8 +17,8 @@ import enum
 from src.database import Base
 
 if TYPE_CHECKING:
-    from users.model_user import User
-    from campaign.models import Campaign
+    from src.users.model import User
+    from src.campaign.models import Campaign
 class BrandProfile(Base):
     __tablename__ = "brand_profiles"
 
