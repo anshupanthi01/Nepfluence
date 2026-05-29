@@ -1,5 +1,9 @@
+"use client"
+
 import Link from "next/link"
 import { ArrowRight, Building2, UserRound } from "lucide-react"
+import { FormEvent, useState } from "react"
+import { useRouter } from "next/navigation"
 
 type Role = "brand" | "creator"
 type Mode = "login" | "register"
@@ -31,11 +35,28 @@ export function normalizeRole(role?: string): Role {
 }
 
 export default function AuthPanel({ mode, role }: AuthPanelProps) {
+  const router = useRouter()
   const active = roleCopy[role]
   const ActiveIcon = active.icon
   const isRegister = mode === "register"
   const alternateMode = isRegister ? "login" : "register"
   const title = isRegister ? active.registerTitle : active.title
+  const [notice, setNotice] = useState("")
+
+  function dashboardPath() {
+    return role === "creator" ? "/creator/dashboard" : "/dashboard"
+  }
+
+  function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setNotice(isRegister ? "Account created for the MVP preview. Opening workspace..." : "Login accepted for the MVP preview. Opening workspace...")
+    router.push(dashboardPath())
+  }
+
+  function continueWithGoogle() {
+    setNotice("Google sign-in is mocked for the MVP preview. Opening workspace...")
+    router.push(dashboardPath())
+  }
 
   return (
     <main className="min-h-screen bg-[#f4f2ff] px-5 py-8 font-[Arial,Helvetica,sans-serif] text-[#141029]">
@@ -103,7 +124,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
             <p className="mt-3 text-sm font-medium leading-6 text-[#68637b]">{active.description}</p>
           </div>
 
-          <form className="mt-8 grid gap-4">
+          <form className="mt-8 grid gap-4" onSubmit={submitAuth}>
             {isRegister && (
               <div>
                 <label className="text-sm font-bold text-[#2a253f]" htmlFor="name">
@@ -111,6 +132,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
                 </label>
                 <input
                   id="name"
+                  required
                   className="mt-2 h-12 w-full rounded-2xl border border-[#dedbec] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#7a75f4] focus:ring-4 focus:ring-[#7a75f4]/14"
                   placeholder={role === "brand" ? "Your brand name" : "Your full name"}
                   type="text"
@@ -124,6 +146,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
               </label>
               <input
                 id="email"
+                required
                 className="mt-2 h-12 w-full rounded-2xl border border-[#dedbec] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#7a75f4] focus:ring-4 focus:ring-[#7a75f4]/14"
                 placeholder="you@example.com"
                 type="email"
@@ -136,6 +159,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
               </label>
               <input
                 id="password"
+                required
                 className="mt-2 h-12 w-full rounded-2xl border border-[#dedbec] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#7a75f4] focus:ring-4 focus:ring-[#7a75f4]/14"
                 placeholder="Enter your password"
                 type="password"
@@ -149,6 +173,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
                 </label>
                 <input
                   id="phone"
+                  required
                   className="mt-2 h-12 w-full rounded-2xl border border-[#dedbec] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#7a75f4] focus:ring-4 focus:ring-[#7a75f4]/14"
                   placeholder={role === "brand" ? "https://yourbrand.com" : "@yourhandle"}
                   type="text"
@@ -177,13 +202,19 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
             </button>
           </form>
 
+          {notice && (
+            <p className="mt-4 rounded-[8px] bg-[#eef1ff] px-4 py-3 text-sm font-bold text-[#5268df]">
+              {notice}
+            </p>
+          )}
+
           <div className="my-7 flex items-center gap-3">
             <span className="h-px flex-1 bg-[#ebe8f6]" />
             <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#918ca5]">or</span>
             <span className="h-px flex-1 bg-[#ebe8f6]" />
           </div>
 
-          <button className="h-12 w-full rounded-full border border-[#dedbec] bg-white text-sm font-extrabold text-[#241655] transition hover:bg-[#f8f7ff]" type="button">
+          <button className="h-12 w-full rounded-full border border-[#dedbec] bg-white text-sm font-extrabold text-[#241655] transition hover:bg-[#f8f7ff]" type="button" onClick={continueWithGoogle}>
             Continue with Google
           </button>
 
