@@ -46,12 +46,12 @@ export default function Navbar() {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
-            {/* <Link
-            className="whitespace-nowrap text-[15px] font-semibold text-black transition hover:text-[#5f6df6]"
-            href="/login?role=creator"
-          >
-            For Creators
-          </Link> */}
+            <Link
+              className="whitespace-nowrap text-[15px] font-semibold text-black transition hover:text-[#5f6df6]"
+              href="/login?role=creator"
+            >
+              For Creators
+            </Link>
             <Link
               className="whitespace-nowrap rounded-full border border-black/10 bg-white px-6 py-4 text-[15px] font-extrabold text-black shadow-[0_5px_14px_rgba(31,28,64,0.16)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(31,28,64,0.2)]"
               href="/login?role=brand"

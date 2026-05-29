@@ -20,7 +20,7 @@ export default function HomePage() {
           Join thousands of brands and creators already using InfluenceNP.
         </p>
         <div className="mt-10 flex justify-center gap-4">
-          <a href="/register?type=brand"
+          <a href="/register?role=brand"
             className="px-8 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition">
             Start for free
           </a>

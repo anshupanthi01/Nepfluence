@@ -1,9 +1,13 @@
-import AuthPanel, { normalizeRole } from "@/components/Auth/AuthPanel"
+import AuthPanel from "@/components/Auth/AuthPanel"
 
 type RegisterPageProps = {
   searchParams?: Promise<{
     role?: string
   }>
+}
+
+function normalizeRole(role?: string) {
+  return role === "creator" ? "creator" : "brand"
 }
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
