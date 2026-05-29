@@ -9,7 +9,7 @@ export default function HomePage() {
       <Navbar />
       <HeroSection />
       <HowItWorks />
-      <StatsSection />
+      {/* <StatsSection /> */}
 
       {/* CALL TO ACTION */}
       <section className="py-24 bg-white px-6 text-center">

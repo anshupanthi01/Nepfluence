@@ -7,6 +7,21 @@ export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED"
 export type EscrowStatus = "NOT_REQUIRED" | "PENDING" | "HELD" | "RELEASED"
 export type CollaborationState = "ESCROW_PENDING" | "IN_PROGRESS" | "SUBMITTED" | "APPROVED"
 
+export type DeliverableSubmission = {
+  videoUrl: string
+  postUrl: string
+  caption: string
+  notes: string
+  aspectRatio: string
+  duration: string
+  submittedAt: string
+  checklist: {
+    briefMatched: boolean
+    usageRights: boolean
+    noCopyrightMusic: boolean
+  }
+}
+
 export type MarketplaceCampaign = {
   id: number
   brand: string
@@ -45,12 +60,23 @@ export type MarketplaceCollaboration = {
   escrow: EscrowStatus
   deliverable: string
   payout: number
+  submission?: DeliverableSubmission
+}
+
+export type MarketplaceMessage = {
+  id: number
+  roomId: number
+  sender: "brand" | "creator"
+  senderName: string
+  body: string
+  createdAt: string
 }
 
 type MarketplaceState = {
   campaigns: MarketplaceCampaign[]
   applications: MarketplaceApplication[]
   collaborations: MarketplaceCollaboration[]
+  messages: MarketplaceMessage[]
 }
 
 type CreatorProfile = {
@@ -154,7 +180,7 @@ const initialState: MarketplaceState = {
       campaign: "Himal Glow winter launch",
       campaignId: 1,
       brand: "Himal Glow",
-      creator: "Sujata KC",
+      creator: "Aarati Rai",
       state: "IN_PROGRESS",
       escrow: "HELD",
       deliverable: "First draft due in 2 days",
@@ -170,6 +196,24 @@ const initialState: MarketplaceState = {
       escrow: "PENDING",
       deliverable: "Chat locked until escrow deposit",
       payout: 35000,
+    },
+  ],
+  messages: [
+    {
+      id: 1,
+      roomId: 1,
+      sender: "brand",
+      senderName: "Himal Glow",
+      body: "Please keep the product close-up in the first 3 seconds.",
+      createdAt: "2026-05-29T08:15:00.000Z",
+    },
+    {
+      id: 2,
+      roomId: 1,
+      sender: "creator",
+      senderName: "Aarati Rai",
+      body: "Sure, I will submit the first video draft with the product hook today.",
+      createdAt: "2026-05-29T08:20:00.000Z",
     },
   ],
 }
@@ -207,9 +251,12 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
         ...collab,
         campaignId: collab.campaignId ?? campaign?.id ?? collab.id,
         brand: collab.brand ?? campaign?.brand ?? "Brand",
+        creator: collab.campaignId === 1 && collab.creator === "Sujata KC" ? "Aarati Rai" : collab.creator,
         payout: collab.payout ?? Math.min(campaign?.budget ?? 45000, 45000),
+        submission: collab.submission,
       }
     }),
+    messages: state.messages ?? initialState.messages,
   }
 }
 
@@ -333,6 +380,7 @@ export function useMarketplaceStore() {
                   ...current.collaborations,
                 ]
               : current.collaborations,
+          messages: current.messages,
         }
       })
     },
@@ -344,11 +392,36 @@ export function useMarketplaceStore() {
         ),
       }))
     },
-    markSubmitted(id: number) {
+    markSubmitted(id: number, submission?: Omit<DeliverableSubmission, "submittedAt">) {
       commit((current) => ({
         ...current,
         collaborations: current.collaborations.map((collab) =>
-          collab.id === id ? { ...collab, state: "SUBMITTED", deliverable: "Deliverable submitted for brand review." } : collab,
+          collab.id === id
+            ? {
+                ...collab,
+                state: "SUBMITTED",
+                deliverable: "Video deliverable submitted. Waiting for brand review.",
+                submission: submission
+                  ? {
+                      ...submission,
+                      submittedAt: new Date().toISOString(),
+                    }
+                  : collab.submission ?? {
+                      videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                      postUrl: "https://www.instagram.com/reel/demo",
+                      caption: "Campaign draft video submitted for brand review.",
+                      notes: "Demo submission created from brand-side simulation.",
+                      aspectRatio: "9:16",
+                      duration: "30s",
+                      submittedAt: new Date().toISOString(),
+                      checklist: {
+                        briefMatched: true,
+                        usageRights: true,
+                        noCopyrightMusic: true,
+                      },
+                    },
+              }
+            : collab,
         ),
       }))
     },
@@ -358,6 +431,20 @@ export function useMarketplaceStore() {
         collaborations: current.collaborations.map((collab) =>
           collab.id === id ? { ...collab, state: "APPROVED", escrow: "RELEASED", deliverable: "Approved. Payout queued." } : collab,
         ),
+      }))
+    },
+    sendMessage(roomId: number, message: Omit<MarketplaceMessage, "id" | "roomId" | "createdAt">) {
+      commit((current) => ({
+        ...current,
+        messages: [
+          ...current.messages,
+          {
+            ...message,
+            id: Date.now(),
+            roomId,
+            createdAt: new Date().toISOString(),
+          },
+        ],
       }))
     },
   }

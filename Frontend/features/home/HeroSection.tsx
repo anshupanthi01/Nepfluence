@@ -68,14 +68,14 @@ export default function HeroSection() {
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-5">
         <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-white/86 px-4 py-2 text-xs font-extrabold text-black shadow-[0_8px_28px_rgba(54,50,100,0.12)] ring-1 ring-black/5 sm:gap-2 sm:px-5 sm:text-[15px]">
           <BadgeCheck className="size-4 fill-[#7894ff] text-white sm:size-5" aria-hidden="true" />
-          <span>Get creators from Nepal and India</span>
+          <span>Get creators from Nepal</span>
           <span className="hidden sm:inline">-</span>
-          <span className="inline-flex items-center gap-1">
+          {/* <span className="inline-flex items-center gap-1">
             {Array.from({ length: 5 }).map((_, index) => (
               <Star key={index} className="size-3.5 fill-[#f7b733] text-[#f7b733] sm:size-4" aria-hidden="true" />
             ))}
             4.9 rating
-          </span>
+          </span> */}
         </div>
 
         <h1 className="mt-6 max-w-[1180px] text-[2.15rem] font-black leading-[1.08] tracking-normal text-black sm:text-[2.9rem] lg:text-[2.75rem] xl:whitespace-nowrap xl:text-[2.65rem]">
@@ -85,12 +85,12 @@ export default function HeroSection() {
         <p className="mt-5 max-w-3xl text-base font-medium leading-7 text-black sm:text-lg lg:text-xl">
           We match brands with verified creators so campaigns feel local, move quickly, and produce content people trust.
         </p>
-
+{/* 
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <HeroBadge icon={<Coins className="size-5 text-[#f7b733]" aria-hidden="true" />} text="UGC videos starting at NPR 8,999" />
           <HeroBadge icon={<Globe2 className="size-5 text-[#4b74ff]" aria-hidden="true" />} text="10,000+ creators across Nepal and India" />
           <HeroBadge icon={<Infinity className="size-5 text-[#7d45ff]" aria-hidden="true" />} text="Unlimited revisions and usage rights" />
-        </div>
+        </div> */}
 
         <a
           href="/register?role=brand"
