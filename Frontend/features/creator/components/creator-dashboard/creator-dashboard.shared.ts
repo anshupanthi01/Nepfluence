@@ -1,44 +1,20 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import Link from "next/link"
 import {
-  ArrowRight,
-  BadgeCheck,
-  Bell,
   BriefcaseBusiness,
-  Camera,
-  CheckCircle2,
-  Clock3,
   CreditCard,
-  Edit3,
-  Eye,
-  FileText,
-  Heart,
-  IndianRupee,
   LayoutDashboard,
-  Menu,
   MessageSquare,
-  PlayCircle,
   Search,
   Send,
-  ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
-  Star,
-  Upload,
   UserRound,
-  WalletCards,
-  X,
 } from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
+import type { LucideIcon } from "lucide-react"
 import {
   CampaignStatus,
   DeliverableSubmission,
   MarketplaceCampaign,
   MarketplaceCollaboration,
-  useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
 export type Section = "Dashboard" | "Find Campaigns" | "Applications" | "Collaborations" | "Messages" | "Payouts" | "Profile"
 export type CreatorApplicationStatus = "NOT_APPLIED" | "PENDING" | "ACCEPTED" | "REJECTED"
@@ -69,7 +45,7 @@ export const emptySubmissionForm: Omit<DeliverableSubmission, "submittedAt"> = {
   },
 }
 
-export const navItems: { label: Section; icon: typeof LayoutDashboard }[] = [
+export const navItems: { label: Section; icon: LucideIcon }[] = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Find Campaigns", icon: Search },
   { label: "Applications", icon: BriefcaseBusiness },

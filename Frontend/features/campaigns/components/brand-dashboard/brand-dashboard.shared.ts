@@ -1,46 +1,19 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import Link from "next/link"
 import {
-  AlertTriangle,
-  ArrowRight,
-  BadgeCheck,
-  Bell,
   Boxes,
   Building2,
-  CheckCircle2,
-  ChevronRight,
   ClipboardList,
   CreditCard,
   FileText,
-  Globe,
-  IndianRupee,
   LayoutDashboard,
-  Menu,
   MessageSquare,
   Megaphone,
-  MoreHorizontal,
-  PlayCircle,
-  Plus,
-  Search,
-  Send,
-  ShieldCheck,
-  SlidersHorizontal,
-  Star,
-  Upload,
   UsersRound,
-  WalletCards,
-  X,
 } from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
+import type { LucideIcon } from "lucide-react"
 import {
-  MarketplaceApplication as Application,
   MarketplaceCampaign as Campaign,
-  MarketplaceCollaboration as Collaboration,
-  ApplicationStatus,
-  useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
 export type Section =
   | "Dashboard"
@@ -59,7 +32,7 @@ export type Activity = {
   tone: "blue" | "green" | "amber" | "red"
 }
 
-export const navItems: { label: Section; icon: typeof LayoutDashboard }[] = [
+export const navItems: { label: Section; icon: LucideIcon }[] = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Campaigns", icon: Megaphone },
   { label: "Applications", icon: ClipboardList },
