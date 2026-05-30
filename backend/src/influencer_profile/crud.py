@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.influencer_profile.models import InfluencerProfile
 from src.influencer_profile.schemas import InfluencerProfileCreate, InfluencerProfileUpdate
@@ -9,7 +10,9 @@ from src.influencer_profile.schemas import InfluencerProfileCreate, InfluencerPr
 
 async def get_by_user_id(db: AsyncSession, user_id: int) -> InfluencerProfile | None:
     result = await db.execute(
-        select(InfluencerProfile).where(InfluencerProfile.user_id == user_id)
+        select(InfluencerProfile)
+        .options(selectinload(InfluencerProfile.social_accounts))  # ✅ load socials
+        .where(InfluencerProfile.user_id == user_id)
     )
     return result.scalars().first()
 

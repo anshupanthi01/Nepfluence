@@ -92,23 +92,25 @@ class SocialAccount(Base):
 
     youtube_channel_name: Mapped[str] = mapped_column(
         String(200),
-        nullable=False,
+        nullable=True,
     )
 
     subscribers_count: Mapped[int] = mapped_column(
         BigInteger,
         default=0,
+        nullable=True,
     )
 
     total_views: Mapped[int] = mapped_column(
         BigInteger,
         default=0,
-        nullable=False
+        nullable=True,
     )
 
     total_videos: Mapped[int] = mapped_column(
         Integer,
         default=0,
+        nullable=True,
     )
 
     average_views: Mapped[int | None] = mapped_column(

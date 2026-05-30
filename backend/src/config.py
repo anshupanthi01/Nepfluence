@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     DATABASE_URL: str
+
+    YOUTUBE_API_KEY: str
     
     # File Upload
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024
@@ -31,7 +33,6 @@ class Settings(BaseSettings):
     MAIL_FROM: str = "noreply@nepfluence.com"
     MAIL_USE_TLS: bool = True
 
-    # add these inside Settings class
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     GOOGLE_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
