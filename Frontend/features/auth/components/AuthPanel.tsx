@@ -4,12 +4,13 @@ import Link from "next/link"
 import { ArrowRight, Building2, UserRound } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
+import { mockLogin } from "@/lib/auth"
+import type { AuthMode, UserRole } from "@/features/auth/types/auth.types"
 
-type Role = "brand" | "creator"
-type Mode = "login" | "register"
+type Role = Extract<UserRole, "brand" | "creator">
 
 type AuthPanelProps = {
-  mode: Mode
+  mode: AuthMode
   role: Role
 }
 
@@ -49,11 +50,16 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
 
   function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const email = String(form.get("email") ?? "demo@nepfluence.com")
+
+    mockLogin(role, email)
     setNotice(isRegister ? "Account created for the MVP preview. Opening workspace..." : "Login accepted for the MVP preview. Opening workspace...")
     router.push(dashboardPath())
   }
 
   function continueWithGoogle() {
+    mockLogin(role)
     setNotice("Google sign-in is mocked for the MVP preview. Opening workspace...")
     router.push(dashboardPath())
   }
@@ -144,9 +150,10 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
               <label className="text-sm font-bold text-[#2a253f]" htmlFor="email">
                 Email
               </label>
-              <input
-                id="email"
-                required
+                <input
+                  id="email"
+                  name="email"
+                  required
                 className="mt-2 h-12 w-full rounded-2xl border border-[#dedbec] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#7a75f4] focus:ring-4 focus:ring-[#7a75f4]/14"
                 placeholder="you@example.com"
                 type="email"

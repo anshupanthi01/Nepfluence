@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 
 export type CampaignStatus = "DRAFT" | "OPEN" | "PAUSED" | "CLOSED" | "COMPLETED"
 export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED"
@@ -90,6 +90,7 @@ type CreatorProfile = {
 
 const storeKey = "nepfluence-marketplace-state-v1"
 const storeEvent = "nepfluence-marketplace-updated"
+let cachedState: MarketplaceState | null = null
 
 const initialState: MarketplaceState = {
   campaigns: [
@@ -261,33 +262,41 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
 }
 
 function writeState(nextState: MarketplaceState) {
+  cachedState = nextState
   window.localStorage.setItem(storeKey, JSON.stringify(nextState))
   window.dispatchEvent(new Event(storeEvent))
 }
 
+function getSnapshot() {
+  cachedState ??= readState()
+  return cachedState
+}
+
+function getServerSnapshot() {
+  return initialState
+}
+
+function subscribe(onStoreChange: () => void) {
+  function syncState() {
+    cachedState = readState()
+    onStoreChange()
+  }
+
+  window.addEventListener(storeEvent, syncState)
+  window.addEventListener("storage", syncState)
+
+  return () => {
+    window.removeEventListener(storeEvent, syncState)
+    window.removeEventListener("storage", syncState)
+  }
+}
+
 export function useMarketplaceStore() {
-  const [state, setState] = useState<MarketplaceState>(initialState)
-
-  useEffect(() => {
-    setState(readState())
-
-    function syncState() {
-      setState(readState())
-    }
-
-    window.addEventListener(storeEvent, syncState)
-    window.addEventListener("storage", syncState)
-
-    return () => {
-      window.removeEventListener(storeEvent, syncState)
-      window.removeEventListener("storage", syncState)
-    }
-  }, [])
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   function commit(updater: (current: MarketplaceState) => MarketplaceState) {
     const nextState = updater(readState())
     writeState(nextState)
-    setState(nextState)
   }
 
   return {

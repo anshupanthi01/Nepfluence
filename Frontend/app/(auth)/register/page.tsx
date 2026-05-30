@@ -1,4 +1,4 @@
-import AuthPanel from "@/components/Auth/AuthPanel"
+import AuthPanel from "@/features/auth/components/AuthPanel"
 
 type RegisterPageProps = {
   searchParams?: Promise<{
