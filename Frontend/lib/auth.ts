@@ -25,6 +25,8 @@ type RegisterInput = {
   role: UserRole
   phoneNumber?: string
   country?: string
+  companyEmail?: string
+  companyWebsite?: string
 }
 
 type LoginInput = {
@@ -112,6 +114,8 @@ export async function register(input: RegisterInput) {
       role: toBackendRole(input.role),
       phone_number: input.phoneNumber || undefined,
       country: input.country || undefined,
+      company_email: input.companyEmail || undefined,
+      company_website: input.companyWebsite || undefined,
     }),
   })
 

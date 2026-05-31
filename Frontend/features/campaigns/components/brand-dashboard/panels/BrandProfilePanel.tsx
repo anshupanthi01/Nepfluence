@@ -33,8 +33,9 @@ import {
   WalletCards,
   X,
 } from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { createMyBrandProfile, getMyBrandProfile, updateMyBrandProfile } from "@/features/brand-profile/api/brandProfileApi"
 import {
   MarketplaceApplication as Application,
   MarketplaceCampaign as Campaign,
@@ -57,6 +58,61 @@ import { MiniReviewStat } from "./ReviewStats"
 export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Campaign[]; collaborations: Collaboration[] }) {
   const liveCampaigns = campaigns.filter((campaign) => campaign.status === "OPEN").length
   const totalSpend = collaborations.reduce((sum, collab) => sum + collab.payout, 0)
+  const [profileId, setProfileId] = useState<number | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [statusMessage, setStatusMessage] = useState("")
+  const [form, setForm] = useState({
+    company_name: "Himal Glow",
+    industry: "Beauty & skincare",
+    website: "himalglow.com",
+    company_size: "Kathmandu, Nepal",
+    description: "Himal Glow creates gentle skincare built around local routines, clean ingredients, and creator-led product education.",
+  })
+
+  async function loadProfile() {
+    if (profileLoaded) return
+    setProfileLoaded(true)
+    try {
+      const profile = await getMyBrandProfile()
+      if (!profile) return
+      setProfileId(profile.id)
+      setForm({
+        company_name: profile.company_name,
+        industry: profile.industry ?? "",
+        website: profile.website ?? "",
+        company_size: profile.company_size ?? "",
+        description: profile.description ?? "",
+      })
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Unable to load brand profile.")
+    }
+  }
+
+  async function saveProfile() {
+    setIsSaving(true)
+    setStatusMessage("")
+    try {
+      const payload = {
+        company_name: form.company_name.trim() || "Untitled brand",
+        industry: form.industry.trim() || undefined,
+        website: form.website.trim() || undefined,
+        company_size: form.company_size.trim() || undefined,
+        description: form.description.trim() || undefined,
+      }
+      const profile = profileId ? await updateMyBrandProfile(payload) : await createMyBrandProfile(payload)
+      setProfileId(profile.id)
+      setStatusMessage("Brand profile saved to backend.")
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Unable to save brand profile.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadProfile()
+  }, [])
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
@@ -72,8 +128,8 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
                   <BadgeCheck className="size-3.5" aria-hidden="true" />
                   Verified brand
                 </p>
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-[#1f252b]">Himal Glow</h2>
-                <p className="mt-1 text-sm font-semibold text-[#69716b]">Skincare brand - Kathmandu, Nepal</p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-[#1f252b]">{form.company_name}</h2>
+                <p className="mt-1 text-sm font-semibold text-[#69716b]">{form.industry || "Industry not set"} - {form.company_size || "Location not set"}</p>
               </div>
             </div>
 
@@ -104,20 +160,22 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
                 <Building2 className="size-4 text-[#8a8175]" aria-hidden="true" />
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <BrandField label="Brand name" value="Himal Glow" />
-                <BrandField label="Industry" value="Beauty & skincare" />
-                <BrandField label="Website" value="himalglow.com" />
-                <BrandField label="Location" value="Kathmandu, Nepal" />
+                <BrandField label="Brand name" value={form.company_name} onChange={(value) => setForm((current) => ({ ...current, company_name: value }))} />
+                <BrandField label="Industry" value={form.industry} onChange={(value) => setForm((current) => ({ ...current, industry: value }))} />
+                <BrandField label="Website" value={form.website} onChange={(value) => setForm((current) => ({ ...current, website: value }))} />
+                <BrandField label="Location" value={form.company_size} onChange={(value) => setForm((current) => ({ ...current, company_size: value }))} />
               </div>
               <label className="mt-3 block text-xs font-black text-[#505852]">
                 Brand story
                 <textarea
                   className="mt-2 min-h-24 w-full resize-none rounded-[16px] border border-[#ded8cf] bg-[#fbfaf7] px-3 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#1f252b] focus:ring-4 focus:ring-[#1f252b]/5"
-                  defaultValue="Himal Glow creates gentle skincare built around local routines, clean ingredients, and creator-led product education."
+                  value={form.description}
+                  onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                 />
               </label>
-              <div className="mt-4">
-                <Button className="h-9 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#303840]" type="button">Save profile</Button>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button className="h-9 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#303840]" type="button" onClick={saveProfile} disabled={isSaving}>{isSaving ? "Saving..." : "Save profile"}</Button>
+                {statusMessage && <p className="text-xs font-black text-[#69716b]">{statusMessage}</p>}
               </div>
             </div>
 
@@ -168,12 +226,12 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
               <div className="flex items-center gap-3">
                 <div className="grid size-10 place-items-center rounded-[14px] bg-[#1f252b] text-xs font-black text-white">HG</div>
                 <div>
-                  <p className="text-sm font-black">Himal Glow</p>
-                  <p className="text-xs font-semibold text-[#69716b]">Beauty & skincare</p>
+                  <p className="text-sm font-black">{form.company_name}</p>
+                  <p className="text-xs font-semibold text-[#69716b]">{form.industry || "Brand"}</p>
                 </div>
               </div>
               <p className="mt-3 text-xs font-semibold leading-5 text-[#505852]">
-                Clean skincare campaigns with creator-led demos, real routines, and local Nepal audience fit.
+                {form.description || "Add a short brand story to help creators understand your campaign style."}
               </p>
             </div>
           </div>
@@ -191,11 +249,11 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
   )
 }
 
-function BrandField({ label, value }: { label: string; value: string }) {
+function BrandField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="text-xs font-black text-[#505852]">
       {label}
-      <input className="mt-2 h-9 w-full rounded-[14px] border border-[#ded8cf] bg-[#fbfaf7] px-3 text-sm font-semibold outline-none focus:border-[#1f252b] focus:ring-4 focus:ring-[#1f252b]/5" defaultValue={value} />
+      <input className="mt-2 h-9 w-full rounded-[14px] border border-[#ded8cf] bg-[#fbfaf7] px-3 text-sm font-semibold outline-none focus:border-[#1f252b] focus:ring-4 focus:ring-[#1f252b]/5" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   )
 }

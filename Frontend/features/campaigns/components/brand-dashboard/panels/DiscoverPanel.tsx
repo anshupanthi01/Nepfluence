@@ -10,6 +10,7 @@ import {
   Boxes,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   ClipboardList,
   CreditCard,
@@ -117,8 +118,16 @@ export function DiscoverPanel({
   const [view, setView] = useState<"find" | "selected" | "rejected" | "lookalikes">("find")
   const [resultMode, setResultMode] = useState<"all" | "smart">("all")
   const [notice, setNotice] = useState("")
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [platformFilterOpen, setPlatformFilterOpen] = useState(false)
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
   const [instagramFilter, setInstagramFilter] = useState(true)
+  const [selectedPlatforms, setSelectedPlatforms] = useState<ConnectedPlatform[]>(["instagram"])
+  const [includeBrandAccounts, setIncludeBrandAccounts] = useState(false)
+  const [affiliateOnly, setAffiliateOnly] = useState(false)
+  const [creatorGender, setCreatorGender] = useState<"all" | "female" | "male">("all")
+  const [creatorAge, setCreatorAge] = useState("")
+  const [creatorLanguage, setCreatorLanguage] = useState("")
+  const [geoLocation, setGeoLocation] = useState("")
   const [contactCreator, setContactCreator] = useState<Creator | null>(null)
   const [profileCreator, setProfileCreator] = useState<Creator | null>(null)
   const [contactTab, setContactTab] = useState<"channels" | "email" | "notes" | "profile">("channels")
@@ -131,11 +140,21 @@ export function DiscoverPanel({
   const rejectedHandles = discoveryDecisions.filter((decision) => decision.status === "REJECTED").map((decision) => decision.handle)
 
   const visibleCreators = creators.filter((creator) => {
+    const connectedPlatforms = creatorPlatformMap[creator.handle] ?? ["instagram"]
+    const platformMatches = selectedPlatforms.length === 0 || selectedPlatforms.some((platform) => connectedPlatforms.includes(platform))
+
+    if (!platformMatches) return false
     if (view === "selected") return selectedHandles.includes(creator.handle)
     if (view === "rejected") return rejectedHandles.includes(creator.handle)
     if (view === "lookalikes") return creator.niche === selectedCreator.niche && creator.handle !== selectedCreator.handle
     return !selectedHandles.includes(creator.handle) && !rejectedHandles.includes(creator.handle)
   })
+
+  const activePlatformLabel = selectedPlatforms.length === 0
+    ? "All channels"
+    : selectedPlatforms.length === 1
+      ? platformLabels[selectedPlatforms[0]].label
+      : `${selectedPlatforms.length} channels`
 
   function moveCreator(creator: Creator, status: CreatorDiscoveryDecision["status"]) {
     setMovingDecision({ handle: creator.handle, status })
@@ -205,8 +224,25 @@ export function DiscoverPanel({
   function clearFilters() {
     onSearch("")
     onFilter("ALL")
-    setInstagramFilter(false)
+    setInstagramFilter(true)
+    setSelectedPlatforms(["instagram"])
+    setIncludeBrandAccounts(false)
+    setAffiliateOnly(false)
+    setCreatorGender("all")
+    setCreatorAge("")
+    setCreatorLanguage("")
+    setGeoLocation("")
     setNotice("Filters cleared.")
+  }
+
+  function togglePlatform(platform: ConnectedPlatform) {
+    setSelectedPlatforms((current) => {
+      const next = current.includes(platform)
+        ? current.filter((selectedPlatform) => selectedPlatform !== platform)
+        : [...current, platform]
+      setInstagramFilter(next.includes("instagram"))
+      return next
+    })
   }
 
   return (
@@ -238,25 +274,67 @@ export function DiscoverPanel({
             />
           </label>
 
-          <div className="flex flex-wrap gap-2">
-            {(["ALL", "NP", "IN"] as const).map((country) => (
-              <button
-                key={country}
-                className={`h-11 rounded-full border px-4 text-xs font-black transition ${
-                  filter === country
-                    ? "border-[#1f252b] bg-[#1f252b] text-white"
-                    : "border-[#ded8cf] bg-white text-[#69716b] hover:border-[#b8afa3]"
-                }`}
-                type="button"
-                onClick={() => onFilter(country)}
-              >
-                {country === "ALL" ? "All creators" : country}
-              </button>
-            ))}
-            <button className="inline-flex h-11 items-center gap-2 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#69716b]" type="button" onClick={() => setFiltersOpen((open) => !open)}>
+          <div className="relative flex flex-wrap gap-2">
+            <button
+              className={`inline-flex h-11 min-w-[180px] items-center justify-between gap-3 rounded-full border bg-white px-4 text-xs font-black shadow-sm transition ${
+                platformFilterOpen ? "border-[#1f252b] text-[#1f252b] ring-4 ring-[#ede8df]" : "border-[#ded8cf] text-[#69716b] hover:border-[#b8afa3]"
+              }`}
+              type="button"
+              onClick={() => {
+                setPlatformFilterOpen((open) => !open)
+                setMoreFiltersOpen(false)
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span className={`grid size-6 place-items-center rounded-full bg-[#f0ece5] text-[10px] font-black ${selectedPlatforms[0] ? platformLabels[selectedPlatforms[0]].tone : "text-[#69716b]"}`}>
+                  {selectedPlatforms[0] ? platformLabels[selectedPlatforms[0]].badge : "ALL"}
+                </span>
+                {activePlatformLabel}
+              </span>
+              <ChevronDown className={`size-4 transition ${platformFilterOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+
+            <button
+              className={`inline-flex h-11 items-center gap-2 rounded-full border bg-white px-4 text-xs font-black shadow-sm transition ${
+                moreFiltersOpen ? "border-[#1f252b] text-[#1f252b] ring-4 ring-[#ede8df]" : "border-[#ded8cf] text-[#69716b] hover:border-[#b8afa3]"
+              }`}
+              type="button"
+              onClick={() => {
+                setMoreFiltersOpen((open) => !open)
+                setPlatformFilterOpen(false)
+              }}
+            >
               <SlidersHorizontal className="size-4" aria-hidden="true" />
               More filters
             </button>
+
+            {platformFilterOpen && (
+              <PlatformFilterPopover
+                selectedPlatforms={selectedPlatforms}
+                onClear={clearFilters}
+                onTogglePlatform={togglePlatform}
+              />
+            )}
+
+            {moreFiltersOpen && (
+              <MoreFiltersPopover
+                affiliateOnly={affiliateOnly}
+                creatorAge={creatorAge}
+                creatorGender={creatorGender}
+                creatorLanguage={creatorLanguage}
+                filter={filter}
+                geoLocation={geoLocation}
+                includeBrandAccounts={includeBrandAccounts}
+                onAgeChange={setCreatorAge}
+                onClear={clearFilters}
+                onCountryChange={onFilter}
+                onGenderChange={setCreatorGender}
+                onGeoLocationChange={setGeoLocation}
+                onIncludeBrandAccountsChange={setIncludeBrandAccounts}
+                onLanguageChange={setCreatorLanguage}
+                onAffiliateOnlyChange={setAffiliateOnly}
+              />
+            )}
           </div>
         </div>
 
@@ -271,11 +349,9 @@ export function DiscoverPanel({
           <button className="h-8 rounded-full px-3 text-xs font-black text-[#505852]" type="button" onClick={clearFilters}>
             Clear all filters
           </button>
-          {filtersOpen && (
-            <span className="inline-flex h-8 items-center rounded-full bg-[#f0ece5] px-3 text-xs font-black text-[#69716b]">
-              MVP filters: country, search, and platform
-            </span>
-          )}
+          <span className="inline-flex h-8 items-center rounded-full bg-[#f0ece5] px-3 text-xs font-black text-[#69716b]">
+            Search, channel, and country filters are active in this MVP.
+          </span>
         </div>
       </div>
 
@@ -444,6 +520,261 @@ function TopTab({ active, label, count, onClick }: { active: boolean; label: str
   )
 }
 
+function PlatformFilterPopover({
+  selectedPlatforms,
+  onClear,
+  onTogglePlatform,
+}: {
+  selectedPlatforms: ConnectedPlatform[]
+  onClear: () => void
+  onTogglePlatform: (platform: ConnectedPlatform) => void
+}) {
+  const quickPlatforms = (Object.keys(platformLabels) as ConnectedPlatform[])
+
+  return (
+    <div className="absolute right-0 top-12 z-40 w-[min(600px,calc(100vw-32px))] overflow-hidden rounded-[18px] border border-[#ded8cf] bg-[#fbfaf7] shadow-[0_22px_70px_rgba(31,37,43,0.16)]">
+      <div className="p-4">
+        <p className="text-sm font-black text-[#1f252b]">Search across</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {quickPlatforms.map((platform) => {
+            const active = selectedPlatforms.includes(platform)
+
+            return (
+              <button
+                key={platform}
+                className={`grid size-10 place-items-center rounded-full border text-[10px] font-black transition ${
+                  active ? "border-[#1f252b] bg-[#1f252b] text-white shadow-sm" : "border-[#ded8cf] bg-white text-[#69716b] hover:border-[#b8afa3]"
+                }`}
+                type="button"
+                onClick={() => onTogglePlatform(platform)}
+                title={platformLabels[platform].label}
+              >
+                {platformLabels[platform].badge}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="border-t border-[#e8e2d9] p-4">
+        <div className="mb-3 inline-flex items-center gap-2 text-xs font-black text-[#1f252b]">
+          <span className="grid size-5 place-items-center rounded-full bg-[#fff0f8] text-[10px] text-[#ff3aa6]">IG</span>
+          Instagram
+        </div>
+
+        <div className="rounded-[16px] border border-[#ded8cf] bg-white p-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FilterLabel>Followers</FilterLabel>
+              <div className="mt-2 flex items-center gap-2">
+                <input className="h-9 min-w-0 flex-1 rounded-[10px] border border-[#ded8cf] px-3 text-sm font-semibold outline-none focus:border-[#1f252b]" defaultValue="0" />
+                <span className="text-xs font-semibold text-[#98a2b3]">to</span>
+                <input className="h-9 min-w-0 flex-1 rounded-[10px] border border-[#ded8cf] px-3 text-sm font-semibold outline-none focus:border-[#1f252b]" defaultValue="∞" />
+              </div>
+            </div>
+
+            <FilterSlider label="Min. followers growth rate" />
+            <FilterSlider label="Min. avg engagement" hasToggle />
+            <FilterSlider label="Min. engagement growth" />
+          </div>
+
+          <div className="mt-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <FilterLabel>Last activity</FilterLabel>
+            <div className="inline-flex rounded-full bg-[#f0ece5] p-1">
+              {["Anytime", "Week", "Month", "3 months", "Year"].map((label, index) => (
+                <button key={label} className={`h-7 rounded-full px-3 text-[11px] font-black ${index === 0 ? "bg-white text-[#1f252b] shadow-sm" : "text-[#8a8175]"}`} type="button">
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#e8e2d9] p-4">
+        <FilterPromo />
+      </div>
+
+      <div className="flex justify-end border-t border-[#e8e2d9] bg-[#f5f3ef] p-3">
+        <button className="h-9 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#69716b] transition hover:border-[#1f252b] hover:text-[#1f252b]" type="button" onClick={onClear}>
+          Clear all filters
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function MoreFiltersPopover({
+  affiliateOnly,
+  creatorAge,
+  creatorGender,
+  creatorLanguage,
+  filter,
+  geoLocation,
+  includeBrandAccounts,
+  onAffiliateOnlyChange,
+  onAgeChange,
+  onClear,
+  onCountryChange,
+  onGenderChange,
+  onGeoLocationChange,
+  onIncludeBrandAccountsChange,
+  onLanguageChange,
+}: {
+  affiliateOnly: boolean
+  creatorAge: string
+  creatorGender: "all" | "female" | "male"
+  creatorLanguage: string
+  filter: "ALL" | "NP" | "IN"
+  geoLocation: string
+  includeBrandAccounts: boolean
+  onAffiliateOnlyChange: (value: boolean) => void
+  onAgeChange: (value: string) => void
+  onClear: () => void
+  onCountryChange: (filter: "ALL" | "NP" | "IN") => void
+  onGenderChange: (value: "all" | "female" | "male") => void
+  onGeoLocationChange: (value: string) => void
+  onIncludeBrandAccountsChange: (value: boolean) => void
+  onLanguageChange: (value: string) => void
+}) {
+  return (
+    <div className="absolute right-0 top-12 z-40 w-[min(600px,calc(100vw-32px))] overflow-hidden rounded-[18px] border border-[#ded8cf] bg-[#fbfaf7] shadow-[0_22px_70px_rgba(31,37,43,0.16)]">
+      <div className="p-4">
+        <h3 className="text-sm font-black text-[#1f252b]">Filter by creator</h3>
+
+        <div className="mt-3 divide-y divide-[#e8e2d9]">
+          <FilterRow label="Include brand accounts">
+            <FilterToggle checked={includeBrandAccounts} onChange={onIncludeBrandAccountsChange} />
+          </FilterRow>
+          <FilterRow label="Show only affiliate creators">
+            <FilterToggle checked={affiliateOnly} onChange={onAffiliateOnlyChange} />
+          </FilterRow>
+          <FilterRow label="Creator country">
+            <select
+              className="h-9 min-w-[190px] rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b] outline-none focus:border-[#1f252b]"
+              value={filter}
+              onChange={(event) => onCountryChange(event.target.value as "ALL" | "NP" | "IN")}
+            >
+              <option value="ALL">All countries</option>
+              <option value="NP">Nepal</option>
+              <option value="IN">India</option>
+            </select>
+          </FilterRow>
+          <FilterRow label="Creator geolocation">
+            <div className="flex gap-2">
+              <input className="h-9 min-w-0 rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b] outline-none focus:border-[#1f252b]" value={geoLocation} onChange={(event) => onGeoLocationChange(event.target.value)} placeholder="i.e New York" />
+              <span className="inline-flex h-9 items-center rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b]">10 Km</span>
+            </div>
+          </FilterRow>
+          <FilterRow label="Creator language">
+            <div className="flex items-center gap-2">
+              <button className="text-xs font-black text-[#1f252b]" type="button" onClick={() => onLanguageChange("All")}>Select all</button>
+              <select className="h-9 min-w-[190px] rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b] outline-none focus:border-[#1f252b]" value={creatorLanguage} onChange={(event) => onLanguageChange(event.target.value)}>
+                <option value="">Select language</option>
+                <option value="English">English</option>
+                <option value="Nepali">Nepali</option>
+                <option value="Hindi">Hindi</option>
+              </select>
+            </div>
+          </FilterRow>
+          <FilterRow label="Creator gender">
+            <div className="inline-flex rounded-full bg-[#f0ece5] p-1">
+              {(["all", "female", "male"] as const).map((gender) => (
+                <button key={gender} className={`h-8 rounded-full px-4 text-xs font-black capitalize ${creatorGender === gender ? "bg-white text-[#1f252b] shadow-sm" : "text-[#69716b]"}`} type="button" onClick={() => onGenderChange(gender)}>
+                  {gender}
+                </button>
+              ))}
+            </div>
+          </FilterRow>
+          <FilterRow label="Creator age">
+            <div className="flex flex-wrap justify-end gap-2">
+              {["0-17", "18-24", "25-34", "35-54"].map((age) => (
+                <button key={age} className={`h-8 rounded-full px-3 text-xs font-black transition ${creatorAge === age ? "bg-[#1f252b] text-white" : "bg-[#f0ece5] text-[#8a8175] hover:bg-[#e8e2d9]"}`} type="button" onClick={() => onAgeChange(creatorAge === age ? "" : age)}>
+                  {age}
+                </button>
+              ))}
+            </div>
+          </FilterRow>
+        </div>
+      </div>
+
+      <div className="border-t border-[#e8e2d9] p-4">
+        <FilterPromo />
+      </div>
+
+      <div className="flex justify-end border-t border-[#e8e2d9] bg-[#f5f3ef] p-3">
+        <button className="h-9 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#69716b] transition hover:border-[#1f252b] hover:text-[#1f252b]" type="button" onClick={onClear}>
+          Clear all filters
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function FilterLabel({ children }: { children: ReactNode }) {
+  return <p className="text-xs font-black text-[#69716b]">{children}</p>
+}
+
+function FilterSlider({ hasToggle = false, label }: { hasToggle?: boolean; label: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <FilterLabel>{label}</FilterLabel>
+        {hasToggle && (
+          <span className="inline-flex overflow-hidden rounded-full bg-[#f0ece5] text-[11px] font-black text-[#8a8175]">
+            <span className="bg-white px-2 py-1 text-[#1f252b]">%</span>
+            <span className="px-2 py-1">#</span>
+          </span>
+        )}
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <input className="h-1 flex-1 accent-[#1f252b]" type="range" min="0" max="100" defaultValue="0" />
+        <div className="inline-flex h-9 overflow-hidden rounded-[10px] border border-[#ded8cf] bg-white text-sm font-black text-[#69716b]">
+          <input className="w-12 bg-transparent px-3 outline-none" defaultValue="0" />
+          <span className="grid w-9 place-items-center bg-[#f0ece5]">%</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FilterRow({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <div className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
+      <span className="text-sm font-semibold text-[#69716b]">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+function FilterToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <button
+      className={`relative h-6 w-11 rounded-full transition ${checked ? "bg-[#1f252b]" : "bg-[#d9dce3]"}`}
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+    >
+      <span className={`absolute top-1 size-4 rounded-full bg-white shadow transition ${checked ? "left-6" : "left-1"}`} />
+    </button>
+  )
+}
+
+function FilterPromo() {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[16px] border border-[#ded8cf] bg-white p-3">
+      <div>
+        <p className="text-sm font-black text-[#1f252b]">Elevate your influencer matches</p>
+        <p className="mt-1 text-xs font-semibold text-[#69716b]">Use saved filters to refine search and outreach.</p>
+      </div>
+      <button className="h-9 shrink-0 rounded-full border border-[#ded8cf] px-3 text-xs font-black text-[#69716b]" type="button">
+        7-day trial
+      </button>
+    </div>
+  )
+}
+
 function ContactModal({
   creator,
   emailBody,
@@ -566,7 +897,7 @@ function ContactModal({
   )
 }
 
-type ConnectedPlatform = "instagram" | "youtube" | "tiktok"
+type ConnectedPlatform = "instagram" | "youtube" | "tiktok" | "x" | "twitch" | "pinterest" | "blog"
 
 const creatorPlatformMap: Record<string, ConnectedPlatform[]> = {
   "@aaratiugc": ["instagram", "youtube"],
@@ -580,6 +911,10 @@ const platformLabels: Record<ConnectedPlatform, { label: string; badge: string; 
   instagram: { label: "Instagram", badge: "IG", tone: "text-[#ff3aa6]" },
   youtube: { label: "YouTube", badge: "YT", tone: "text-[#e11d48]" },
   tiktok: { label: "TikTok", badge: "TT", tone: "text-[#111827]" },
+  x: { label: "X", badge: "X", tone: "text-[#111827]" },
+  twitch: { label: "Twitch", badge: "TW", tone: "text-[#6441a5]" },
+  pinterest: { label: "Pinterest", badge: "P", tone: "text-[#bd081c]" },
+  blog: { label: "Blog", badge: "WP", tone: "text-[#69716b]" },
 }
 
 function platformMetrics(creator: Creator, platform: ConnectedPlatform) {

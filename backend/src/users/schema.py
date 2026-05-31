@@ -13,6 +13,8 @@ class UserBase(BaseModel):
     email:EmailStr=Field(max_length=120)
     phone_number: Optional[str] = Field(default=None, max_length=20)
     country: Optional[str] = Field(default=None, max_length=100)
+    company_email: Optional[EmailStr] = Field(default=None, max_length=120)
+    company_website: Optional[str] = Field(default=None, max_length=255)
     role: UserRole = Field(default=UserRole.BRAND)
 
 class UserCreate(UserBase):

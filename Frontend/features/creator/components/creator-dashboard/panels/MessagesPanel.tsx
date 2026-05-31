@@ -1,56 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import Link from "next/link"
-import {
-  ArrowRight,
-  BadgeCheck,
-  Bell,
-  BriefcaseBusiness,
-  Camera,
-  CheckCircle2,
-  Clock3,
-  CreditCard,
-  Edit3,
-  Eye,
-  FileText,
-  Heart,
-  IndianRupee,
-  LayoutDashboard,
-  Menu,
-  MessageSquare,
-  PlayCircle,
-  Search,
-  Send,
-  ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
-  Star,
-  Upload,
-  UserRound,
-  WalletCards,
-  X,
-} from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  CampaignStatus,
-  DeliverableSubmission,
-  MarketplaceCampaign,
-  MarketplaceCollaboration,
-  useMarketplaceStore,
-} from "@/features/shared/marketplaceStore"
-import {
-  type Activity,
-  type Collaboration,
-  type CreatorCampaign,
-  creatorAnalytics,
-  creatorProfileImage,
-  portfolioShots,
-  campaignImage,
-  money,
-  statusClass,
-} from "../creator-dashboard.shared"
+import { Send } from "lucide-react"
+import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
+import { type Collaboration } from "../creator-dashboard.shared"
 
 export function MessagesPanel({
   collaborations,
@@ -73,49 +25,75 @@ export function MessagesPanel({
   const roomMessages = messages.filter((item) => item.roomId === activeRoom?.id)
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
-      <div className="rounded-[8px] border border-[#e4e7f1] bg-white p-4 shadow-sm">
-        {collaborations.map((collab) => (
-          <button key={collab.id} className={`mb-2 flex w-full items-center gap-3 rounded-[8px] p-3 text-left ${activeRoom?.id === collab.id ? "bg-[#eef1ff]" : "hover:bg-[#f7f8fb]"}`} type="button" onClick={() => onRoomChange(collab.id)}>
-            <span className="grid size-10 place-items-center rounded-full bg-[#6174f8] text-sm font-black text-white">{collab.brand.charAt(0)}</span>
-            <span>
-              <span className="block text-sm font-black">{collab.brand}</span>
-              <span className="block text-xs font-bold text-[#8a909f]">{collab.campaign}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="rounded-[8px] border border-[#e4e7f1] bg-white shadow-sm">
-        <div className="border-b border-[#edf0f6] p-5">
-          <h2 className="text-xl font-black">{activeRoom?.brand ?? "Messages"}</h2>
-          <p className="mt-1 text-sm font-medium text-[#727887]">{activeRoom?.escrow === "HELD" ? "Chat is unlocked because escrow is held." : "Chat unlocks when escrow is deposited."}</p>
+    <section className="grid min-h-[calc(100vh-112px)] gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <aside className="rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] p-3 shadow-[0_18px_46px_rgba(31,37,43,0.06)]">
+        <div className="px-2 py-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Rooms</p>
+          <h2 className="mt-1 text-lg font-black tracking-tight text-[#1f252b]">Brand messages</h2>
         </div>
-        <div className="min-h-[320px] space-y-3 p-5">
+        <div className="space-y-2">
+          {collaborations.map((collab) => (
+            <button
+              key={collab.id}
+              className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition ${
+                activeRoom?.id === collab.id ? "bg-[#1f252b] text-white shadow-sm" : "bg-white text-[#1f252b] hover:bg-[#f5f3ef]"
+              }`}
+              type="button"
+              onClick={() => onRoomChange(collab.id)}
+            >
+              <span className={`grid size-10 shrink-0 place-items-center rounded-full text-sm font-black ${activeRoom?.id === collab.id ? "bg-white text-[#1f252b]" : "bg-[#f0ece5] text-[#505852]"}`}>
+                {collab.brand.charAt(0)}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black">{collab.brand}</span>
+                <span className={`block truncate text-xs font-semibold ${activeRoom?.id === collab.id ? "text-white/64" : "text-[#69716b]"}`}>{collab.campaign}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <div className="flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_46px_rgba(31,37,43,0.06)]">
+        <div className="border-b border-[#e8e2d9] px-5 py-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Conversation</p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-[#1f252b]">{activeRoom?.brand ?? "Messages"}</h2>
+          <p className="mt-1 text-sm font-semibold text-[#69716b]">{activeRoom?.escrow === "HELD" ? "Escrow is held, so chat and deliverables are open." : "Chat unlocks when escrow is deposited."}</p>
+        </div>
+
+        <div className="min-h-[360px] flex-1 space-y-3 overflow-y-auto p-5">
           {roomMessages.map((item) => (
             <div key={item.id} className={item.sender === "creator" ? "ml-auto max-w-md" : "max-w-md"}>
-              <p className="mb-1 text-xs font-black text-[#8a909f]">{item.senderName}</p>
-              <p className={`rounded-[8px] p-3 text-sm font-bold ${item.sender === "creator" ? "bg-[#6174f8] text-white" : "bg-[#f3f5fb] text-[#555866]"}`}>
+              <p className="mb-1 px-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{item.senderName}</p>
+              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${item.sender === "creator" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>
                 {item.body}
               </p>
             </div>
           ))}
           {roomMessages.length === 0 && (
-            <p className="rounded-[8px] border border-dashed border-[#dfe3ee] p-4 text-sm font-bold text-[#727887]">No messages yet. Start the room with a campaign update.</p>
+            <div className="grid min-h-[300px] place-items-center rounded-[24px] border border-dashed border-[#ded8cf] bg-white/60 p-8 text-center">
+              <div>
+                <p className="text-lg font-black text-[#1f252b]">No messages yet</p>
+                <p className="mt-2 text-sm font-semibold text-[#69716b]">Start with a concise campaign update or delivery question.</p>
+              </div>
+            </div>
           )}
         </div>
-        <div className="flex gap-2 border-t border-[#edf0f6] p-4">
-          <input
-            className="h-10 flex-1 rounded-[8px] border border-[#e1e4ef] px-3 text-sm font-bold outline-none focus:border-[#6174f8]"
-            placeholder="Type a message..."
-            value={message}
-            onChange={(event) => onMessageChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") onSend()
-            }}
-          />
-          <button className="grid size-10 place-items-center rounded-[8px] bg-[#6174f8] text-white" type="button" aria-label="Send message" onClick={onSend}>
-            <Send className="size-4" aria-hidden="true" />
-          </button>
+
+        <div className="border-t border-[#e8e2d9] bg-white/70 p-4">
+          <div className="flex gap-2 rounded-full border border-[#ded8cf] bg-white p-1.5 shadow-sm">
+            <input
+              className="h-10 min-w-0 flex-1 bg-transparent px-4 text-sm font-semibold text-[#505852] outline-none placeholder:text-[#98a2b3]"
+              placeholder="Type a message..."
+              value={message}
+              onChange={(event) => onMessageChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") onSend()
+              }}
+            />
+            <button className="grid size-10 shrink-0 place-items-center rounded-full bg-[#1f252b] text-white" type="button" aria-label="Send message" onClick={onSend}>
+              <Send className="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
     </section>

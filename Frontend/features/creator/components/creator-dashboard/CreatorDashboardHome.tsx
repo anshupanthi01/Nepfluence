@@ -39,32 +39,34 @@ export function CreatorDashboardHome({
   return (
     <div className="space-y-5">
       <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <div className="overflow-hidden rounded-[8px] border border-[#dfe3f2] bg-white shadow-sm">
-          <div className="grid gap-5 bg-[#111322] p-5 text-white lg:grid-cols-[1fr_280px]">
+        <div className="overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_46px_rgba(31,37,43,0.07)]">
+          <div className="relative grid gap-5 bg-[#e8e2d9] p-5 lg:grid-cols-[1fr_280px]">
+            <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1500&q=80)" }} />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#fbfaf7] via-[#fbfaf7]/92 to-[#fbfaf7]/70" />
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-black text-[#b9c3ff]">
+              <p className="relative inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-1 text-xs font-black text-[#1f252b] ring-1 ring-[#e8e2d9]">
                 <Sparkles className="size-4" aria-hidden="true" />
                 Creator command center
               </p>
-              <h2 className="mt-4 max-w-2xl text-3xl font-black tracking-normal">Manage brand deals from application to payout</h2>
-              <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/72">
-                Discover matching campaigns, track application states, collaborate after escrow, submit deliverables, and watch payouts in one workspace.
+              <h2 className="relative mt-4 max-w-2xl text-3xl font-black tracking-tight text-[#1f252b]">Manage brand deals from application to payout</h2>
+              <p className="relative mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#505852]">
+                Browse matching campaigns, track applications, submit deliverables, and keep payout steps clear.
               </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Button className="h-10 rounded-[8px] bg-[#7894ff] px-4 text-sm font-black text-white hover:bg-[#6f86f4]" type="button" onClick={onBrowseCampaigns}>
+              <div className="relative mt-5 flex flex-wrap gap-2">
+                <Button className="h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#363d43]" type="button" onClick={onBrowseCampaigns}>
                   Browse campaigns <ArrowRight className="size-4" aria-hidden="true" />
                 </Button>
-                <Button className="h-10 rounded-[8px] border-white/15 bg-white/10 px-4 text-sm font-black text-white hover:bg-white/15" variant="outline" type="button" onClick={onEditProfile}>
+                <Button className="h-10 rounded-full border-[#ded8cf] bg-white/70 px-4 text-xs font-black text-[#1f252b] hover:bg-white" variant="outline" type="button" onClick={onEditProfile}>
                   Edit profile <Edit3 className="size-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>
-            <div className="rounded-[8px] border border-white/12 bg-white/8 p-4">
+            <div className="relative rounded-[24px] border border-[#e8e2d9] bg-white/82 p-4 shadow-sm backdrop-blur">
               <div className="flex items-center gap-3">
-                <div className="size-16 rounded-full bg-cover bg-center ring-4 ring-white/15" style={{ backgroundImage: `url(${creatorProfileImage})` }} />
+                <div className="size-16 rounded-[20px] bg-cover bg-center ring-4 ring-white" style={{ backgroundImage: `url(${creatorProfileImage})` }} />
                 <div>
-                  <p className="text-lg font-black">Aarati Rai</p>
-                  <p className="text-sm font-bold text-white/62">@aaratiugc</p>
+                  <p className="text-lg font-black text-[#1f252b]">Aarati Rai</p>
+                  <p className="text-sm font-bold text-[#69716b]">@aaratiugc</p>
                 </div>
               </div>
               <div className="mt-5 grid grid-cols-3 gap-2 text-center">
@@ -75,8 +77,8 @@ export function CreatorDashboardHome({
             </div>
           </div>
           <div className="p-5">
-            <p className="text-sm font-black text-[#6174f8]">Creator home</p>
-            <h3 className="mt-2 text-xl font-black tracking-normal">Live performance snapshot</h3>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Creator home</p>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-[#1f252b]">Live performance snapshot</h3>
             <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {stats.map((item) => <MetricCard key={item.label} icon={item.icon} label={item.label} value={item.value} detail={item.detail} />)}
             </div>
