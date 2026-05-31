@@ -8,6 +8,7 @@ import {
   CreatorDiscoveryDecision,
   useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
+import { readMockSession } from "@/lib/auth"
 import {
   ApplicationQueue,
   BrandProfilePanel,
@@ -26,9 +27,21 @@ import { type Activity, type Section, creators, emptyCampaignForm } from "./bran
 
 const startSectionKey = "nepfluence-brand-start-section"
 
+function titleFromEmail(email?: string) {
+  const base = email?.split("@")[0] || "Brand"
+  return base
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export default function BrandDashboardOverview() {
   const marketplace = useMarketplaceStore()
-  const [activeSection, setActiveSection] = useState<Section>("Dashboard")
+  const session = readMockSession()
+  const currentBrandName = session?.username || titleFromEmail(session?.email)
+  const [activeSection, setActiveSection] = useState<Section>("Discover Creators")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [campaignModalOpen, setCampaignModalOpen] = useState(false)
   const [lifecycleOpen, setLifecycleOpen] = useState(false)
@@ -46,9 +59,9 @@ export default function BrandDashboardOverview() {
   const applications = marketplace.applications
   const collaborations = marketplace.collaborations
   const [activities, setActivities] = useState<Activity[]>([
-    { id: 1, message: "Aarati Rai applied to Himal Glow winter launch.", tone: "blue" },
-    { id: 2, message: "Escrow is held for Sujata KC collaboration.", tone: "green" },
-    { id: 3, message: "Trail Tea collaboration needs escrow deposit.", tone: "amber" },
+    { id: 1, message: "Discover creators and build your first shortlist.", tone: "blue" },
+    { id: 2, message: "Create a campaign brief when your brand profile is ready.", tone: "green" },
+    { id: 3, message: "Escrow, messages, and deliverables unlock after a creator is accepted.", tone: "amber" },
   ])
 
   useEffect(() => {
@@ -103,7 +116,7 @@ export default function BrandDashboardOverview() {
     event.preventDefault()
     const nextCampaign: Campaign = {
       id: nextUiId(),
-      brand: "Himal Glow",
+      brand: currentBrandName,
       title: form.title.trim() || "Untitled campaign",
       niche: form.niche,
       budget: Number(form.budget) || 0,

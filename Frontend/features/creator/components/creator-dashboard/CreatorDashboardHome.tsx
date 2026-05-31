@@ -3,15 +3,24 @@
 import { ArrowRight, Edit3, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { CreatorCampaign, Collaboration, Activity } from "./creator-dashboard.shared"
-import { creatorProfileImage } from "./creator-dashboard.shared"
+import type { CreatorCampaign, Collaboration, Activity, CreatorWorkspaceProfile } from "./creator-dashboard.shared"
 import { ActivityPanel, CampaignsPanel, CollaborationsPanel, MetricCard, MiniStat } from "./CreatorDashboardPanels"
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "CR"
+}
 
 type CreatorDashboardHomeProps = {
   activities: Activity[]
   campaigns: CreatorCampaign[]
   collaborations: Collaboration[]
   campaignSearch: string
+  creatorProfile: CreatorWorkspaceProfile
   stats: { label: string; value: string; detail: string; icon: LucideIcon }[]
   onApply: (id: number) => void
   onBrowseCampaigns: () => void
@@ -27,6 +36,7 @@ export function CreatorDashboardHome({
   campaigns,
   collaborations,
   campaignSearch,
+  creatorProfile,
   stats,
   onApply,
   onBrowseCampaigns,
@@ -63,16 +73,18 @@ export function CreatorDashboardHome({
             </div>
             <div className="relative rounded-[24px] border border-[#e8e2d9] bg-white/82 p-4 shadow-sm backdrop-blur">
               <div className="flex items-center gap-3">
-                <div className="size-16 rounded-[20px] bg-cover bg-center ring-4 ring-white" style={{ backgroundImage: `url(${creatorProfileImage})` }} />
+                <div className="grid size-16 place-items-center rounded-[20px] bg-[#1f252b] text-lg font-black text-white ring-4 ring-white">
+                  {initials(creatorProfile.creator)}
+                </div>
                 <div>
-                  <p className="text-lg font-black text-[#1f252b]">Aarati Rai</p>
-                  <p className="text-sm font-bold text-[#69716b]">@aaratiugc</p>
+                  <p className="text-lg font-black text-[#1f252b]">{creatorProfile.creator}</p>
+                  <p className="text-sm font-bold text-[#69716b]">{creatorProfile.handle}</p>
                 </div>
               </div>
               <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                <MiniStat label="Followers" value="42K" />
-                <MiniStat label="Score" value="92" />
-                <MiniStat label="Match" value="96%" />
+                <MiniStat label="Followers" value={creatorProfile.followers} />
+                <MiniStat label="Accounts" value={creatorProfile.connectedPlatforms.length.toString()} />
+                <MiniStat label="Profile" value={creatorProfile.connectedPlatforms.length ? "Live" : "Draft"} />
               </div>
             </div>
           </div>

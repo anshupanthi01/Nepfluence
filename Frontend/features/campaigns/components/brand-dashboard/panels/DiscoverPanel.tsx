@@ -805,29 +805,29 @@ function ContactModal({
   onTabChange: (tab: "channels" | "email" | "notes" | "profile") => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4 backdrop-blur-[2px]">
-      <div className="flex h-[min(720px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
-        <div className="flex h-12 items-center justify-between border-b border-[#e7eaf1] px-3">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/30 p-4 backdrop-blur-[2px]">
+      <div className="flex h-[min(720px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.22)]">
+        <div className="flex h-14 items-center justify-between border-b border-[#e8e2d9] px-4">
           <div className="flex items-center gap-2">
             <ModalTab active={tab === "channels"} label="Channels" onClick={() => onTabChange("channels")} />
             <ModalTab active={tab === "email"} label="Email" onClick={() => onTabChange("email")} />
             <ModalTab active={tab === "notes"} label="Notes" onClick={() => onTabChange("notes")} />
             <ModalTab active={tab === "profile"} label="Profile" onClick={() => onTabChange("profile")} />
           </div>
-          <button className="grid size-8 place-items-center rounded-full border border-[#dfe4ee] text-[#667085] transition hover:bg-[#f7f8fb]" type="button" aria-label="Close contact modal" onClick={onClose}>
+          <button className="grid size-8 place-items-center rounded-full border border-[#ded8cf] text-[#69716b] transition hover:bg-[#f0ece5]" type="button" aria-label="Close contact modal" onClick={onClose}>
             <X className="size-3.5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="grid min-h-0 flex-1 lg:grid-cols-[240px_1fr]">
-          <aside className="border-r border-[#e7eaf1] p-4">
-            <h2 className="text-base font-black text-[#202939]">Contact {creator.name}</h2>
-            <p className="mt-1 text-xs font-semibold text-[#667085]">{creator.handle} - {creator.niche}</p>
-            <div className="mt-4 flex items-center gap-3 rounded-[10px] bg-[#f8f9fc] p-3">
+          <aside className="border-r border-[#e8e2d9] p-4">
+            <h2 className="text-base font-black text-[#1f252b]">Contact {creator.name}</h2>
+            <p className="mt-1 text-xs font-semibold text-[#69716b]">{creator.handle} - {creator.niche}</p>
+            <div className="mt-4 flex items-center gap-3 rounded-[20px] bg-white p-3 ring-1 ring-[#e8e2d9]">
               <div className="size-12 rounded-full bg-cover bg-center shadow-sm" style={{ backgroundImage: `url(${creator.image})` }} />
               <div>
-                <p className="text-sm font-black text-[#202939]">{creator.country}</p>
-                <p className="text-xs font-semibold text-[#667085]">Creator profile</p>
+                <p className="text-sm font-black text-[#1f252b]">{creator.country}</p>
+                <p className="text-xs font-semibold text-[#69716b]">Creator profile</p>
               </div>
             </div>
           </aside>
@@ -836,15 +836,15 @@ function ContactModal({
             {tab === "channels" && (
               <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center text-center">
                 <div className="size-20 rounded-full bg-cover bg-center shadow-[0_14px_32px_rgba(15,23,42,0.16)] ring-4 ring-white" style={{ backgroundImage: `url(${creator.image})` }} />
-                <h3 className="mt-5 text-lg font-black text-[#202939]">Ready to team up with {creator.name}?</h3>
-                <p className="mt-2 text-xs font-semibold leading-5 text-[#667085]">
+                <h3 className="mt-5 text-lg font-black text-[#1f252b]">Ready to team up with {creator.name}?</h3>
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">
                   Start with an in-app message or prepare an email outreach draft for this creator.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  <button className="h-10 rounded-[8px] bg-[#9a3cff] px-4 text-xs font-black text-white shadow-[0_10px_22px_rgba(154,60,255,0.18)]" type="button" onClick={() => onTabChange("email")}>
+                  <button className="h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white shadow-[0_10px_22px_rgba(31,37,43,0.16)]" type="button" onClick={() => onTabChange("email")}>
                     Email creator
                   </button>
-                  <button className="h-10 rounded-[8px] border border-[#dfe4ee] px-4 text-xs font-black text-[#344054] transition hover:bg-[#f7f8fb]" type="button" onClick={() => onTabChange("notes")}>
+                  <button className="h-10 rounded-full border border-[#ded8cf] px-4 text-xs font-black text-[#505852] transition hover:bg-white" type="button" onClick={() => onTabChange("notes")}>
                     In-app message
                   </button>
                 </div>
@@ -853,11 +853,11 @@ function ContactModal({
 
             {tab === "email" && (
               <div className="mx-auto max-w-xl">
-                <p className="text-xs font-semibold text-[#667085]">To {creator.name}</p>
-                <input className="mt-3 h-10 w-full rounded-[8px] border border-[#dfe4ee] px-3 text-sm font-semibold outline-none focus:border-[#9a3cff]" value={emailSubject} onChange={(event) => onEmailSubjectChange(event.target.value)} placeholder="Subject" />
-                <textarea className="mt-3 min-h-56 w-full resize-none rounded-[8px] border border-[#dfe4ee] px-3 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#9a3cff]" value={emailBody} onChange={(event) => onEmailBodyChange(event.target.value)} placeholder="Write your email" />
+                <p className="text-xs font-semibold text-[#69716b]">To {creator.name}</p>
+                <input className="mt-3 h-10 w-full rounded-full border border-[#ded8cf] px-4 text-sm font-semibold outline-none focus:border-[#1f252b]" value={emailSubject} onChange={(event) => onEmailSubjectChange(event.target.value)} placeholder="Subject" />
+                <textarea className="mt-3 min-h-56 w-full resize-none rounded-[20px] border border-[#ded8cf] px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#1f252b]" value={emailBody} onChange={(event) => onEmailBodyChange(event.target.value)} placeholder="Write your email" />
                 <div className="mt-3 flex justify-end">
-                  <button className="h-10 rounded-[8px] bg-[#9a3cff] px-4 text-xs font-black text-white disabled:bg-[#dfe3eb]" disabled={isSendingEmail || !emailSubject.trim() || !emailBody.trim()} type="button" onClick={onSendEmail}>
+                  <button className="h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white disabled:bg-[#ded8cf]" disabled={isSendingEmail || !emailSubject.trim() || !emailBody.trim()} type="button" onClick={onSendEmail}>
                     {isSendingEmail ? "Saving..." : "Send email"}
                   </button>
                 </div>
@@ -866,10 +866,10 @@ function ContactModal({
 
             {tab === "notes" && (
               <div className="mx-auto max-w-xl">
-                <p className="text-xs font-semibold text-[#667085]">In-app message to {creator.name}</p>
-                <textarea className="mt-3 min-h-56 w-full resize-none rounded-[8px] border border-[#dfe4ee] px-3 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#9a3cff]" value={message} onChange={(event) => onMessageChange(event.target.value)} />
+                <p className="text-xs font-semibold text-[#69716b]">In-app message to {creator.name}</p>
+                <textarea className="mt-3 min-h-56 w-full resize-none rounded-[20px] border border-[#ded8cf] px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#1f252b]" value={message} onChange={(event) => onMessageChange(event.target.value)} />
                 <div className="mt-3 flex justify-end">
-                  <button className="h-10 rounded-[8px] bg-[#9a3cff] px-4 text-xs font-black text-white disabled:bg-[#dfe3eb]" disabled={!message.trim()} type="button" onClick={onSendMessage}>
+                  <button className="h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white disabled:bg-[#ded8cf]" disabled={!message.trim()} type="button" onClick={onSendMessage}>
                     Send in-app message
                   </button>
                 </div>
@@ -878,9 +878,9 @@ function ContactModal({
 
             {tab === "profile" && (
               <div className="mx-auto max-w-xl">
-                <h3 className="text-xl font-black text-[#202939]">{creator.name}</h3>
-                <p className="mt-1 text-xs font-black text-[#9a3cff]">{creator.handle}</p>
-                <p className="mt-4 text-sm font-semibold leading-6 text-[#667085]">
+                <h3 className="text-xl font-black text-[#1f252b]">{creator.name}</h3>
+                <p className="mt-1 text-xs font-black text-[#505852]">{creator.handle}</p>
+                <p className="mt-4 text-sm font-semibold leading-6 text-[#69716b]">
                   {creator.niche} creator available for product demos, brand storytelling, and campaign content.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -1110,7 +1110,7 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
 
 function ModalTab({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
-    <button className={`h-14 border-b-2 px-3 text-sm font-bold ${active ? "border-[#9a3cff] text-[#9a3cff]" : "border-transparent text-[#667085]"}`} type="button" onClick={onClick}>
+    <button className={`h-14 border-b-2 px-3 text-sm font-bold ${active ? "border-[#1f252b] text-[#1f252b]" : "border-transparent text-[#69716b]"}`} type="button" onClick={onClick}>
       {label}
     </button>
   )
@@ -1118,27 +1118,27 @@ function ModalTab({ active, label, onClick }: { active: boolean; label: string; 
 
 function AnalyticsCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-[8px] border border-[#edf0f6] bg-[#fbfcff] p-4">
-      <p className="text-xs font-black uppercase text-[#8a909f]">{label}</p>
-      <p className="mt-2 text-3xl font-black text-[#17171f]">{value}</p>
-      <p className="mt-1 text-xs font-bold text-[#727887]">{detail}</p>
+    <div className="rounded-[20px] border border-[#e8e2d9] bg-white p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#1f252b]">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-[#69716b]">{detail}</p>
     </div>
   )
 }
 
 function AnalyticsBreakdown({ title, items }: { title: string; items: { label: string; value: string }[] }) {
   return (
-    <div className="rounded-[8px] border border-[#edf0f6] p-4">
-      <h3 className="text-sm font-black">{title}</h3>
+    <div className="rounded-[20px] border border-[#e8e2d9] bg-white p-4">
+      <h3 className="text-sm font-black text-[#1f252b]">{title}</h3>
       <div className="mt-4 space-y-3">
         {items.map((item) => (
           <div key={item.label}>
-            <div className="flex items-center justify-between text-xs font-black text-[#606675]">
+            <div className="flex items-center justify-between text-xs font-black text-[#505852]">
               <span>{item.label}</span>
               <span>{item.value}</span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#eef1ff]">
-              <div className="h-full rounded-full bg-[#6174f8]" style={{ width: item.value }} />
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#f0ece5]">
+              <div className="h-full rounded-full bg-[#1f252b]" style={{ width: item.value }} />
             </div>
           </div>
         ))}

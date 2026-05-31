@@ -9,6 +9,7 @@ type BackendUserRole = "brand" | "influencer" | "admin"
 
 type BackendUser = {
   id: number
+  username: string
   email: string
   role: BackendUserRole
 }
@@ -67,6 +68,16 @@ export function readMockSession(): AuthSession | null {
 
 export function readAuthToken() {
   return readMockSession()?.accessToken ?? null
+}
+
+export function updateStoredSession(updates: Partial<Pick<AuthSession, "email" | "username">>) {
+  const session = readMockSession()
+  if (!session) return null
+
+  return saveSession({
+    ...session,
+    ...updates,
+  })
 }
 
 export function hasCompletedCreatorOnboarding(userId?: string) {
@@ -167,6 +178,7 @@ export async function login(input: LoginInput) {
   return saveSession({
     userId: String(user.id),
     email: user.email,
+    username: user.username,
     role: userRole,
     accessToken: token.access_token,
     accessTokenExpiresAt: tokenExpiry(),
@@ -179,6 +191,7 @@ export function mockLogin(role: UserRole, email = "demo@nepfluence.com", accessT
   const session: AuthSession = {
     userId: "preview-user",
     email,
+    username: email.split("@")[0],
     role,
     accessToken,
     accessTokenExpiresAt: tokenExpiry(),

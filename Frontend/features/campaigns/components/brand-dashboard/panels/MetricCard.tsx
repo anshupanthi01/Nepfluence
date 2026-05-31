@@ -1,67 +1,20 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import Link from "next/link"
-import {
-  AlertTriangle,
-  ArrowRight,
-  BadgeCheck,
-  Bell,
-  Boxes,
-  Building2,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardList,
-  CreditCard,
-  FileText,
-  Globe,
-  IndianRupee,
-  LayoutDashboard,
-  Menu,
-  MessageSquare,
-  Megaphone,
-  MoreHorizontal,
-  PlayCircle,
-  Plus,
-  Search,
-  Send,
-  ShieldCheck,
-  SlidersHorizontal,
-  Star,
-  Upload,
-  UsersRound,
-  WalletCards,
-  X,
-} from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  MarketplaceApplication as Application,
-  MarketplaceCampaign as Campaign,
-  MarketplaceCollaboration as Collaboration,
-  ApplicationStatus,
-  useMarketplaceStore,
-} from "@/features/shared/marketplaceStore"
-import {
-  type Activity,
-  type Creator,
-  creatorAnalytics,
-  creatorImage,
-  creatorWorkSamples,
-  campaignImage,
-  money,
-  statusClass,
-} from "../brand-dashboard.shared"
+import type { LucideIcon } from "lucide-react"
 
-export function MetricCard({ icon: Icon, label, value, detail }: { icon: typeof LayoutDashboard; label: string; value: string; detail: string }) {
+export function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-[8px] border border-[#e4e7f1] bg-white p-5 shadow-sm">
-      <span className="grid size-10 place-items-center rounded-[8px] bg-[#eef1ff] text-[#6174f8]">
-        <Icon className="size-5" aria-hidden="true" />
-      </span>
-      <div className="mt-4 text-3xl font-black">{value}</div>
-      <div className="mt-1 text-sm font-black text-[#484b57]">{label}</div>
-      <div className="mt-1 text-xs font-bold text-[#8a909f]">{detail}</div>
+    <div className="rounded-[22px] border border-[#e8e2d9] bg-[#fbfaf7] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8175]">{label}</p>
+          <p className="mt-3 text-2xl font-black tracking-tight text-[#1f252b]">{value}</p>
+        </div>
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#ede7dc] text-[#1f252b]">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+      </div>
+      <p className="mt-3 text-xs font-semibold leading-5 text-[#69716b]">{detail}</p>
     </div>
   )
 }

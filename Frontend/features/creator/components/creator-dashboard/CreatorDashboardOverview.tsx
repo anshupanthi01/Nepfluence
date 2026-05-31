@@ -1,8 +1,10 @@
 "use client"
 
 import { BriefcaseBusiness, CheckCircle2, Clock3, ShieldCheck } from "lucide-react"
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
+import { getMyCreatorProfile } from "@/features/creator-profile/api/creatorProfileApi"
 import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
+import { readMockSession } from "@/lib/auth"
 import {
   ApplicationsPanel,
   CampaignsPanel,
@@ -19,14 +21,43 @@ import {
   type Activity,
   type Collaboration,
   type CreatorCampaign,
+  type CreatorWorkspaceProfile,
   type Section,
   emptySubmissionForm,
   money,
 } from "./creator-dashboard.shared"
 
+function titleFromEmail(email?: string) {
+  const base = email?.split("@")[0] || "Creator"
+  return base
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function handleFromSession(email?: string, username?: string) {
+  const base = (username || email?.split("@")[0] || "creator").toLowerCase().replace(/[^a-z0-9]+/g, "")
+  return `@${base || "creator"}`
+}
+
+function readConnectedPlatforms(userId?: string) {
+  if (typeof window === "undefined" || !userId) return []
+  const raw = window.localStorage.getItem(`nepfluence-creator-socials:${userId}`)
+  if (!raw) return []
+
+  try {
+    return JSON.parse(raw) as string[]
+  } catch {
+    return []
+  }
+}
+
 export default function CreatorDashboardOverview() {
   const marketplace = useMarketplaceStore()
-  const [activeSection, setActiveSection] = useState<Section>("Dashboard")
+  const [activeSection, setActiveSection] = useState<Section>("Profile")
+  const session = readMockSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [campaignSearch, setCampaignSearch] = useState("")
@@ -34,19 +65,78 @@ export default function CreatorDashboardOverview() {
   const [selectedRoomId, setSelectedRoomId] = useState(1)
   const [submissionCollab, setSubmissionCollab] = useState<Collaboration | null>(null)
   const [submissionForm, setSubmissionForm] = useState(emptySubmissionForm)
+  const [creatorProfile, setCreatorProfile] = useState<CreatorWorkspaceProfile>(() => ({
+    creator: session?.username || titleFromEmail(session?.email),
+    handle: handleFromSession(session?.email, session?.username),
+    country: "NP",
+    niche: "Profile not set",
+    followers: "0",
+    bio: "Connect your social accounts and complete your profile to show brands what you create.",
+    location: "Location not set",
+    connectedPlatforms: readConnectedPlatforms(session?.userId),
+    analytics: [
+      { label: "Followers", value: "0", detail: "Connect socials" },
+      { label: "Avg views", value: "0", detail: "Connect socials" },
+      { label: "Total views", value: "0", detail: "Connect socials" },
+      { label: "Videos", value: "0", detail: "Connect socials" },
+      { label: "Engagement", value: "0%", detail: "Connect socials" },
+      { label: "Accounts", value: readConnectedPlatforms(session?.userId).length.toString(), detail: "Connected" },
+    ],
+  }))
   const [activities, setActivities] = useState<Activity[]>([
     { id: 1, message: "Trail Tea escrow is held. Chat and deliverables are unlocked.", tone: "green" },
     { id: 2, message: "8848 Momo House application is waiting on brand review.", tone: "amber" },
-    { id: 3, message: "Himal Glow campaign matches your Beauty UGC profile.", tone: "blue" },
+    { id: 3, message: "Complete your creator profile to improve campaign matches.", tone: "blue" },
   ])
 
-  const creatorProfile = {
-    creator: "Aarati Rai",
-    handle: "@aaratiugc",
-    country: "NP" as const,
-    niche: "Beauty UGC",
-    followers: "42K",
-  }
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCreatorProfile() {
+      const currentSession = readMockSession()
+      const localPlatforms = readConnectedPlatforms(currentSession?.userId)
+
+      try {
+        const backendProfile = await getMyCreatorProfile()
+        if (cancelled) return
+
+        const youtubeStats = backendProfile?.youtube_stats?.[0]
+        const backendPlatforms = backendProfile?.social_accounts?.map((account) => account.platform) ?? []
+        const connectedPlatforms = Array.from(new Set([...localPlatforms, ...backendPlatforms]))
+        const followers = youtubeStats?.subscribers ? youtubeStats.subscribers.toLocaleString("en-IN") : "0"
+
+        setCreatorProfile({
+          profileId: backendProfile?.id,
+          creator: backendProfile?.full_name || currentSession?.username || titleFromEmail(currentSession?.email),
+          handle: backendProfile?.social_accounts?.[0]?.youtube_handle || handleFromSession(currentSession?.email, currentSession?.username),
+          country: "NP",
+          niche: backendProfile?.niche ? backendProfile.niche.replace(/_/g, " ") : "Profile not set",
+          followers,
+          bio: backendProfile?.bio || "Connect your social accounts and complete your profile to show brands what you create.",
+          location: "Location not set",
+          connectedPlatforms,
+          analytics: [
+            { label: "Followers", value: followers, detail: connectedPlatforms.length ? "Connected socials" : "Connect socials" },
+            { label: "Avg views", value: youtubeStats?.average_views ? youtubeStats.average_views.toLocaleString("en-IN") : "0", detail: "YouTube" },
+            { label: "Total views", value: youtubeStats?.total_views ? youtubeStats.total_views.toLocaleString("en-IN") : "0", detail: "YouTube" },
+            { label: "Videos", value: youtubeStats?.total_videos ? youtubeStats.total_videos.toString() : "0", detail: "YouTube" },
+            { label: "Engagement", value: youtubeStats?.engagement_rate ? `${youtubeStats.engagement_rate}%` : "0%", detail: "Connected channels" },
+            { label: "Accounts", value: connectedPlatforms.length.toString(), detail: "Connected" },
+          ],
+        })
+      } catch {
+        if (!cancelled) {
+          setCreatorProfile((current) => ({ ...current, connectedPlatforms: localPlatforms }))
+        }
+      }
+    }
+
+    void loadCreatorProfile()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const campaigns: CreatorCampaign[] = marketplace.campaigns
     .filter((campaign) => campaign.status === "OPEN" || marketplace.applications.some((application) => application.campaignId === campaign.id && application.handle === creatorProfile.handle))
@@ -168,6 +258,7 @@ export default function CreatorDashboardOverview() {
           campaigns={filteredCampaigns}
           collaborations={collaborations}
           campaignSearch={campaignSearch}
+          creatorProfile={creatorProfile}
           stats={stats}
           onApply={applyToCampaign}
           onBrowseCampaigns={() => setActiveSection("Find Campaigns")}
@@ -194,7 +285,7 @@ export default function CreatorDashboardOverview() {
         />
       )}
       {activeSection === "Payouts" && <PayoutsPanel collaborations={collaborations} onSubmit={submitDeliverable} onMarkPaid={markPaid} />}
-      {activeSection === "Profile" && <ProfilePanel />}
+      {activeSection === "Profile" && <ProfilePanel creatorProfile={creatorProfile} onProfileChange={setCreatorProfile} />}
 
       {notificationOpen && <NotificationPanel activities={activities} onClose={() => setNotificationOpen(false)} />}
       {submissionCollab && (

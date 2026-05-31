@@ -54,7 +54,7 @@ export function BrandDashboardShell({
         </Link>
         {!sidebarCollapsed && (
           <button
-            className="grid size-8 place-items-center rounded-[8px] border border-[#ded8cf] text-[#6d746f] transition hover:bg-[#f2eee8]"
+            className="grid size-8 place-items-center rounded-full border border-[#ded8cf] text-[#6d746f] transition hover:bg-[#f2eee8]"
             type="button"
             aria-label="Collapse sidebar"
             onClick={() => setSidebarCollapsed(true)}
@@ -67,7 +67,7 @@ export function BrandDashboardShell({
       {sidebarCollapsed && (
         <div className="border-b border-[#eceef5] px-2 py-3">
           <button
-            className="grid size-9 w-full place-items-center rounded-[8px] border border-[#ded8cf] text-[#6d746f] transition hover:bg-[#f2eee8]"
+            className="grid size-9 w-full place-items-center rounded-full border border-[#ded8cf] text-[#6d746f] transition hover:bg-[#f2eee8]"
             type="button"
             aria-label="Expand sidebar"
             title="Expand sidebar"
@@ -85,7 +85,7 @@ export function BrandDashboardShell({
           return (
             <button
               key={item.label}
-              className={`flex w-full items-center rounded-[8px] py-2 text-left text-[13px] font-bold transition ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${
+              className={`flex w-full items-center rounded-full py-2 text-left text-[13px] font-bold transition ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${
                 activeSection === item.label ? "bg-[#1f252b] text-white" : "text-[#5f6762] hover:bg-[#f2eee8] hover:text-[#1f252b]"
               }`}
               type="button"
@@ -101,7 +101,7 @@ export function BrandDashboardShell({
       </nav>
 
       {!sidebarCollapsed && <div className="border-t border-[#e8e2d9] p-3">
-        <div className="rounded-[8px] border border-[#e2dccf] bg-[#f5f1ea] p-3 text-[#1f252b]">
+        <div className="rounded-[20px] border border-[#e2dccf] bg-[#f5f1ea] p-3 text-[#1f252b]">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a8175]">MVP workflow</p>
           <p className="mt-2 text-xs font-semibold leading-5 text-[#505852]">Campaigns, escrow, chat, deliverables, and reviews stay connected.</p>
           <button className="mt-3 inline-flex h-8 items-center gap-2 rounded-full bg-white px-3 text-xs font-black text-[#1f252b] shadow-sm" type="button" onClick={onOpenLifecycle}>
@@ -128,7 +128,7 @@ export function BrandDashboardShell({
           <header className="sticky top-0 z-40 border-b border-[#e8e2d9] bg-[#fbfaf7]/92 backdrop-blur-xl">
             <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-5">
               <div className="flex min-w-0 items-center gap-3">
-                <button className="grid size-9 place-items-center rounded-[8px] border border-[#ded8cf] bg-white lg:hidden" type="button" aria-label="Open mobile menu" onClick={onOpenMobileMenu}>
+                <button className="grid size-9 place-items-center rounded-full border border-[#ded8cf] bg-white lg:hidden" type="button" aria-label="Open mobile menu" onClick={onOpenMobileMenu}>
                   <Menu className="size-5" aria-hidden="true" />
                 </button>
                 <div className="min-w-0">
@@ -138,18 +138,18 @@ export function BrandDashboardShell({
               </div>
 
               <div className="flex items-center gap-2">
-                <button className="hidden h-9 items-center gap-2 rounded-[8px] border border-[#ded8cf] bg-white px-3 text-xs font-bold text-[#505852] sm:inline-flex" type="button" onClick={onOpenLifecycle}>
+                <button className="hidden h-9 items-center gap-2 rounded-full border border-[#ded8cf] bg-white px-3 text-xs font-bold text-[#505852] sm:inline-flex" type="button" onClick={onOpenLifecycle}>
                   <ShieldCheck className="size-4" aria-hidden="true" />
                   Lifecycle
                 </button>
-                <button className="grid size-9 place-items-center rounded-[8px] border border-[#ded8cf] bg-white" type="button" aria-label="Notifications" onClick={onOpenNotifications}>
+                <button className="grid size-9 place-items-center rounded-full border border-[#ded8cf] bg-white" type="button" aria-label="Notifications" onClick={onOpenNotifications}>
                   <Bell className="size-4" aria-hidden="true" />
                 </button>
-                <button className="hidden h-9 items-center gap-2 rounded-[8px] border border-[#ded8cf] bg-white px-3 text-xs font-bold text-[#505852] sm:inline-flex" type="button" onClick={signOut}>
+                <button className="hidden h-9 items-center gap-2 rounded-full border border-[#ded8cf] bg-white px-3 text-xs font-bold text-[#505852] sm:inline-flex" type="button" onClick={signOut}>
                   <LogOut className="size-4" aria-hidden="true" />
                   Logout
                 </button>
-                <button className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-[#1f252b] px-3.5 text-xs font-black text-white shadow-[0_10px_20px_rgba(31,37,43,0.14)]" type="button" onClick={onOpenCampaign}>
+                <button className="inline-flex h-9 items-center gap-2 rounded-full bg-[#1f252b] px-3.5 text-xs font-black text-white shadow-[0_10px_20px_rgba(31,37,43,0.14)]" type="button" onClick={onOpenCampaign}>
                   <Plus className="size-4" aria-hidden="true" />
                   New campaign
                 </button>

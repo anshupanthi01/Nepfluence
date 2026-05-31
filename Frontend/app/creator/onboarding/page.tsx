@@ -42,6 +42,9 @@ function CreatorOnboardingContent() {
 
   function finishOnboarding() {
     const session = readMockSession()
+    if (session?.userId) {
+      window.localStorage.setItem(`nepfluence-creator-socials:${session.userId}`, JSON.stringify(connected))
+    }
     completeCreatorOnboarding(session?.userId)
     router.replace("/creator/dashboard")
   }

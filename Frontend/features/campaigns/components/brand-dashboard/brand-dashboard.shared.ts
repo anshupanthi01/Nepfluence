@@ -254,6 +254,6 @@ export function statusClass(status: string) {
   if (["PAUSED", "REJECTED"].includes(status)) {
     return "bg-[#fff0f0] text-[#b83232]"
   }
-  return "bg-[#eef1ff] text-[#6070e8]"
+  return "bg-[#f0ece5] text-[#505852]"
 }
 

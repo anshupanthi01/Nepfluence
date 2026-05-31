@@ -1,47 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
-import Link from "next/link"
-import {
-  AlertTriangle,
-  ArrowRight,
-  BadgeCheck,
-  Bell,
-  Boxes,
-  Building2,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardList,
-  CreditCard,
-  FileText,
-  Globe,
-  IndianRupee,
-  LayoutDashboard,
-  Menu,
-  MessageSquare,
-  Megaphone,
-  MoreHorizontal,
-  PlayCircle,
-  Plus,
-  Search,
-  Send,
-  ShieldCheck,
-  SlidersHorizontal,
-  Star,
-  Upload,
-  UsersRound,
-  WalletCards,
-  X,
-} from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  MarketplaceApplication as Application,
-  MarketplaceCampaign as Campaign,
-  MarketplaceCollaboration as Collaboration,
-  ApplicationStatus,
-  useMarketplaceStore,
-} from "@/features/shared/marketplaceStore"
+import { FormEvent, ReactNode } from "react"
+import { Upload, X } from "lucide-react"
 import { emptyCampaignForm, lifecycleSteps } from "./brand-dashboard.shared"
 
 export function CampaignFormModal({
@@ -56,15 +16,15 @@ export function CampaignFormModal({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/34 px-4 py-6">
-      <form className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[8px] bg-white shadow-[0_24px_70px_rgba(20,21,34,0.28)]" onSubmit={onSubmit}>
-        <div className="flex items-start justify-between gap-4 border-b border-[#edf0f6] p-5">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4 py-6">
+      <form className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_70px_rgba(31,37,43,0.24)]" onSubmit={onSubmit}>
+        <div className="flex items-start justify-between gap-4 border-b border-[#e8e2d9] p-5">
           <div>
-            <p className="text-xs font-black uppercase text-[#6174f8]">Campaigns domain</p>
-            <h2 className="mt-1 text-2xl font-black">Create campaign draft</h2>
-            <p className="mt-1 text-sm font-medium text-[#727887]">This creates DRAFT state first. Publish after reviewing brief and budget.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Campaigns</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight text-[#1f252b]">Create campaign draft</h2>
+            <p className="mt-1 max-w-xl text-sm font-semibold leading-6 text-[#69716b]">Save a draft first, then publish when the brief and budget feel ready.</p>
           </div>
-          <button className="grid size-9 place-items-center rounded-full bg-[#f3f5fb]" type="button" aria-label="Close campaign form" onClick={onClose}>
+          <button className="grid size-9 place-items-center rounded-full bg-[#f0ece5] text-[#1f252b] transition hover:bg-[#e4ddd2]" type="button" aria-label="Close campaign form" onClick={onClose}>
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
@@ -98,21 +58,23 @@ export function CampaignFormModal({
           <Field label="Brief" wide>
             <textarea required className="input min-h-28 resize-none py-3" value={form.brief} onChange={(event) => onChange({ ...form, brief: event.target.value })} placeholder="Describe content format, must-have shots, revision rules, and approval criteria." />
           </Field>
-          <div className="rounded-[8px] bg-[#f7f8fb] p-4 md:col-span-2">
+          <div className="rounded-[20px] bg-white p-4 ring-1 ring-[#e8e2d9] md:col-span-2">
             <div className="flex items-start gap-3">
-              <Upload className="mt-0.5 size-5 text-[#6174f8]" aria-hidden="true" />
-              <p className="text-sm font-bold leading-6 text-[#606675]">
-                File upload will later use S3 presigned URLs from the architecture. For now this form stores a local campaign draft.
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#f0ece5] text-[#1f252b]">
+                <Upload className="size-4" aria-hidden="true" />
+              </span>
+              <p className="text-sm font-semibold leading-6 text-[#505852]">
+                Media upload will connect to storage later. For now, this creates a clean campaign draft in the MVP workspace.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-[#edf0f6] p-5">
-          <button className="h-10 rounded-[8px] border border-[#e1e4ef] px-4 text-sm font-black" type="button" onClick={onClose}>
+        <div className="flex flex-col gap-2 border-t border-[#e8e2d9] p-5 sm:flex-row sm:justify-end">
+          <button className="h-10 rounded-full border border-[#ded8cf] px-4 text-sm font-black text-[#505852]" type="button" onClick={onClose}>
             Cancel
           </button>
-          <button className="h-10 rounded-[8px] bg-[#6174f8] px-4 text-sm font-black text-white" type="submit">
+          <button className="h-10 rounded-full bg-[#1f252b] px-4 text-sm font-black text-white transition hover:bg-[#303840]" type="submit">
             Save draft
           </button>
         </div>
@@ -123,9 +85,9 @@ export function CampaignFormModal({
 
 function Field({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
-    <label className={`text-sm font-black text-[#484b57] ${wide ? "md:col-span-2" : ""}`}>
+    <label className={`text-xs font-black text-[#505852] ${wide ? "md:col-span-2" : ""}`}>
       {label}
-      <div className="mt-2 [&_.input]:h-11 [&_.input]:w-full [&_.input]:rounded-[8px] [&_.input]:border [&_.input]:border-[#dfe3ee] [&_.input]:bg-white [&_.input]:px-3 [&_.input]:text-sm [&_.input]:font-bold [&_.input]:outline-none [&_.input]:transition [&_.input]:focus:border-[#6174f8] [&_.input]:focus:ring-4 [&_.input]:focus:ring-[#6174f8]/10">
+      <div className="mt-2 [&_.input]:w-full [&_.input]:rounded-[18px] [&_.input]:border [&_.input]:border-[#ded8cf] [&_.input]:bg-white [&_.input]:px-4 [&_.input]:text-sm [&_.input]:font-semibold [&_.input]:text-[#1f252b] [&_.input]:outline-none [&_.input]:transition [&_.input]:focus:border-[#1f252b] [&_.input]:focus:ring-4 [&_.input]:focus:ring-[#1f252b]/8 [&_select.input]:h-11 [&_input.input]:h-11">
         {children}
       </div>
     </label>
@@ -134,22 +96,22 @@ function Field({ label, children, wide = false }: { label: string; children: Rea
 
 export function LifecycleModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/34 px-4">
-      <section className="w-full max-w-lg rounded-[8px] bg-white p-5 shadow-[0_24px_70px_rgba(20,21,34,0.28)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4">
+      <section className="w-full max-w-lg rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_24px_70px_rgba(31,37,43,0.24)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase text-[#6174f8]">Architecture pattern</p>
-            <h2 className="mt-1 text-2xl font-black">Campaign to payout lifecycle</h2>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Workflow</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight text-[#1f252b]">Campaign to payout</h2>
           </div>
-          <button className="grid size-9 place-items-center rounded-full bg-[#f3f5fb]" type="button" aria-label="Close lifecycle" onClick={onClose}>
+          <button className="grid size-9 place-items-center rounded-full bg-[#f0ece5] text-[#1f252b] transition hover:bg-[#e4ddd2]" type="button" aria-label="Close lifecycle" onClick={onClose}>
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
         <div className="mt-5 space-y-3">
           {lifecycleSteps.map((step, index) => (
-            <div key={step} className="flex items-center gap-3 rounded-[8px] border border-[#edf0f6] p-3">
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#eef1ff] text-xs font-black text-[#6174f8]">{index + 1}</span>
-              <p className="text-sm font-bold text-[#555866]">{step}</p>
+            <div key={step} className="flex items-center gap-3 rounded-[18px] bg-white p-3 ring-1 ring-[#e8e2d9]">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#1f252b] text-xs font-black text-white">{index + 1}</span>
+              <p className="text-sm font-semibold leading-6 text-[#505852]">{step}</p>
             </div>
           ))}
         </div>
@@ -160,19 +122,19 @@ export function LifecycleModal({ onClose }: { onClose: () => void }) {
 
 export function SupportPanel({ onClose }: { onClose: () => void }) {
   return (
-    <section className="fixed bottom-20 right-5 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[8px] border border-[#e4e7f1] bg-white shadow-[0_18px_50px_rgba(25,28,50,0.2)]">
-      <div className="flex items-start justify-between gap-3 border-b border-[#edf0f6] p-4">
+    <section className="fixed bottom-20 right-5 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_50px_rgba(31,37,43,0.16)]">
+      <div className="flex items-start justify-between gap-3 border-b border-[#e8e2d9] p-4">
         <div>
-          <p className="text-xs font-black uppercase text-[#6174f8]">Build note</p>
-          <h2 className="text-lg font-black">Next integration step</h2>
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Support</p>
+          <h2 className="mt-1 text-lg font-black text-[#1f252b]">Integration notes</h2>
         </div>
-        <button className="grid size-8 place-items-center rounded-full bg-[#f3f5fb]" type="button" aria-label="Close support" onClick={onClose}>
+        <button className="grid size-8 place-items-center rounded-full bg-[#f0ece5] text-[#1f252b] transition hover:bg-[#e4ddd2]" type="button" aria-label="Close support" onClick={onClose}>
           <X className="size-4" aria-hidden="true" />
         </button>
       </div>
-      <div className="space-y-3 p-4 text-sm font-bold leading-6 text-[#606675]">
-        <p className="rounded-[8px] bg-[#f7f8fb] p-3">This UI now models real MVP flows locally. Backend wiring should map to campaigns, applications, collaboration, payments, and trust modules.</p>
-        <p className="rounded-[8px] bg-[#eef1ff] p-3 text-[#5268df]">Use TanStack Query mutations once FastAPI routes are ready.</p>
+      <div className="space-y-3 p-4 text-sm font-semibold leading-6 text-[#505852]">
+        <p className="rounded-[18px] bg-white p-3 ring-1 ring-[#e8e2d9]">Campaigns, applications, collaboration rooms, payments, and trust reports are now styled as one brand workspace.</p>
+        <p className="rounded-[18px] bg-[#f0ece5] p-3">Remaining backend gaps should be wired route by route as FastAPI endpoints are added.</p>
       </div>
     </section>
   )

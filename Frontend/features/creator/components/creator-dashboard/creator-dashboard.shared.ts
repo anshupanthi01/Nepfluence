@@ -31,6 +31,19 @@ export type Activity = {
   tone: "blue" | "green" | "amber"
 }
 
+export type CreatorWorkspaceProfile = {
+  profileId?: number
+  creator: string
+  handle: string
+  country: "NP" | "IN"
+  niche: string
+  followers: string
+  bio: string
+  location: string
+  connectedPlatforms: string[]
+  analytics: { label: string; value: string; detail: string }[]
+}
+
 export const emptySubmissionForm: Omit<DeliverableSubmission, "submittedAt"> = {
   videoUrl: "",
   postUrl: "",
