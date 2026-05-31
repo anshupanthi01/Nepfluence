@@ -3,13 +3,34 @@
 import Link from "next/link"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { FormEvent, useState } from "react"
+import { apiClient } from "@/lib/api-client"
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function submitReset(event: FormEvent<HTMLFormElement>) {
+  async function submitReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setSent(true)
+    const form = new FormData(event.currentTarget)
+    const email = String(form.get("email") ?? "")
+
+    setError("")
+    setSent(false)
+    setIsSubmitting(true)
+
+    try {
+      await apiClient<{ message: string }>("/api/users/forgot-password", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({ email }),
+      })
+      setSent(true)
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : "Unable to send reset email")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -21,27 +42,33 @@ export default function ForgotPasswordPage() {
         </Link>
         <h1 className="mt-8 text-3xl font-black tracking-normal">Reset your password</h1>
         <p className="mt-3 text-sm font-medium leading-6 text-[#68637b]">
-          Enter your account email and the backend reset flow can be connected here.
+          Enter your account email and we will send the backend reset flow.
         </p>
         <form className="mt-6 grid gap-4" onSubmit={submitReset}>
           <label className="text-sm font-bold text-[#2a253f]" htmlFor="reset-email">
             Email
             <input
               id="reset-email"
+              name="email"
               required
               className="mt-2 h-12 w-full rounded-[8px] border border-[#dedbec] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#7a75f4] focus:ring-4 focus:ring-[#7a75f4]/14"
               placeholder="you@example.com"
               type="email"
             />
           </label>
-          <button className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#7894ff] px-6 text-sm font-black text-white" type="submit">
-            Send reset link
+          <button disabled={isSubmitting} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#7894ff] px-6 text-sm font-black text-white disabled:opacity-70" type="submit">
+            {isSubmitting ? "Sending..." : "Send reset link"}
             <ArrowRight className="size-4" aria-hidden="true" />
           </button>
         </form>
+        {error && (
+          <p className="mt-4 rounded-[8px] bg-[#fff0f0] px-4 py-3 text-sm font-bold text-[#b42318]">
+            {error}
+          </p>
+        )}
         {sent && (
           <p className="mt-4 rounded-[8px] bg-[#eef1ff] px-4 py-3 text-sm font-bold text-[#5268df]">
-            Reset request saved for the MVP preview. Backend email delivery can attach here.
+            If an account exists with this email, reset instructions have been sent.
           </p>
         )}
       </section>

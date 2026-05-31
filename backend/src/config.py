@@ -8,13 +8,13 @@ class Settings(BaseSettings):
     )
 
     # JWT Settings
-    SECRET_KEY: SecretStr
+    SECRET_KEY: SecretStr = SecretStr("change-this-local-dev-secret-at-least-32-bytes")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite+aiosqlite:///./nepfluence.db"
 
-    YOUTUBE_API_KEY: str
+    YOUTUBE_API_KEY: str = ""
     
     # File Upload
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024
@@ -33,11 +33,11 @@ class Settings(BaseSettings):
     MAIL_FROM: str = "noreply@nepfluence.com"
     MAIL_USE_TLS: bool = True
 
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
     
     # Frontend URL
-    FRONTEND_URL: str = "http://localhost:3000"  # React/Vite default port
+    FRONTEND_URL: str = "http://localhost:3000"
 
 settings = Settings()

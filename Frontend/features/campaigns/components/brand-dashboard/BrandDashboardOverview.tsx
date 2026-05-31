@@ -1,10 +1,11 @@
 "use client"
 
 import { ClipboardList, Megaphone, ShieldCheck, UsersRound } from "lucide-react"
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import {
   MarketplaceCampaign as Campaign,
   ApplicationStatus,
+  CreatorDiscoveryDecision,
   useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
 import {
@@ -23,6 +24,8 @@ import { BrandDashboardHome } from "./BrandDashboardHome"
 import { BrandDashboardShell } from "./BrandDashboardShell"
 import { type Activity, type Section, creators, emptyCampaignForm } from "./brand-dashboard.shared"
 
+const startSectionKey = "nepfluence-brand-start-section"
+
 export default function BrandDashboardOverview() {
   const marketplace = useMarketplaceStore()
   const [activeSection, setActiveSection] = useState<Section>("Dashboard")
@@ -36,7 +39,9 @@ export default function BrandDashboardOverview() {
   const [brandMessage, setBrandMessage] = useState("")
   const [selectedRoomId, setSelectedRoomId] = useState(1)
   const [selectedCreator, setSelectedCreator] = useState(creators[0])
+  const [discoveryDecisions, setDiscoveryDecisions] = useState<CreatorDiscoveryDecision[]>(marketplace.discoveryDecisions)
   const [form, setForm] = useState(emptyCampaignForm)
+  const discoveryDirtyRef = useRef(false)
   const campaigns = marketplace.campaigns
   const applications = marketplace.applications
   const collaborations = marketplace.collaborations
@@ -45,6 +50,27 @@ export default function BrandDashboardOverview() {
     { id: 2, message: "Escrow is held for Sujata KC collaboration.", tone: "green" },
     { id: 3, message: "Trail Tea collaboration needs escrow deposit.", tone: "amber" },
   ])
+
+  useEffect(() => {
+    const startSection = window.localStorage.getItem(startSectionKey) as Section | null
+    if (startSection === "Discover Creators") {
+      setActiveSection(startSection)
+      window.localStorage.removeItem(startSectionKey)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!discoveryDirtyRef.current || marketplace.discoveryDecisions.length > 0) {
+      setDiscoveryDecisions(marketplace.discoveryDecisions)
+    }
+  }, [marketplace.discoveryDecisions])
+
+  const idCounter = useRef(0)
+
+  function nextUiId() {
+    idCounter.current += 1
+    return Date.now() * 1000 + idCounter.current
+  }
 
   const analytics = useMemo(() => {
     const liveCampaigns = campaigns.filter((campaign) => campaign.status === "OPEN").length
@@ -70,13 +96,13 @@ export default function BrandDashboardOverview() {
   const paymentTotal = collaborations.filter((collab) => collab.escrow === "HELD").length * 45000
 
   function addActivity(message: string, tone: Activity["tone"] = "blue") {
-    setActivities((current) => [{ id: Date.now(), message, tone }, ...current].slice(0, 6))
+    setActivities((current) => [{ id: nextUiId(), message, tone }, ...current].slice(0, 6))
   }
 
   function submitCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextCampaign: Campaign = {
-      id: Date.now(),
+      id: nextUiId(),
       brand: "Himal Glow",
       title: form.title.trim() || "Untitled campaign",
       niche: form.niche,
@@ -115,6 +141,21 @@ export default function BrandDashboardOverview() {
     } else {
       addActivity(`${application.creator} rejected and notified.`, "red")
     }
+  }
+
+  function decideCreatorDiscovery(creator: (typeof creators)[number], status: CreatorDiscoveryDecision["status"]) {
+    discoveryDirtyRef.current = true
+    setDiscoveryDecisions((current) => [
+      {
+        creator: creator.name,
+        handle: creator.handle,
+        status,
+        decidedAt: new Date().toISOString(),
+      },
+      ...current.filter((decision) => decision.handle !== creator.handle),
+    ])
+    marketplace.decideCreatorDiscovery({ creator: creator.name, handle: creator.handle }, status)
+    addActivity(`${creator.name} ${status === "SELECTED" ? "moved to selected creators" : "moved to rejected creators"}.`, status === "SELECTED" ? "blue" : "red")
   }
 
   function depositEscrow(id: number) {
@@ -194,9 +235,11 @@ export default function BrandDashboardOverview() {
       {activeSection === "Discover Creators" && (
         <DiscoverPanel
           creators={filteredCreators}
+          discoveryDecisions={discoveryDecisions}
           filter={creatorFilter}
           search={creatorSearch}
           selectedCreator={selectedCreator}
+          onDiscoveryDecision={decideCreatorDiscovery}
           onFilter={setCreatorFilter}
           onSearch={setCreatorSearch}
           onSelect={setSelectedCreator}

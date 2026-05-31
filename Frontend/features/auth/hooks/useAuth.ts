@@ -1,11 +1,12 @@
 "use client"
 
-import { mockLogin, mockLogout, readMockSession } from "@/lib/auth"
+import { login, logout, readMockSession, register } from "@/lib/auth"
 
 export function useAuth() {
   return {
     session: readMockSession(),
-    login: mockLogin,
-    logout: mockLogout,
+    login,
+    logout,
+    register,
   }
 }

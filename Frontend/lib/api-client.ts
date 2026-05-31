@@ -1,4 +1,5 @@
 import type { ApiError, StandardResponse } from "@/types/api.types"
+import { readAuthToken } from "@/lib/auth"
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
@@ -14,16 +15,25 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     headers.set("Content-Type", "application/json")
   }
 
+  const token = options.auth === false ? null : readAuthToken()
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`)
+  }
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
-    credentials: options.auth === false ? "same-origin" : "include",
     headers,
   })
 
   const payload = (await response.json().catch(() => null)) as StandardResponse<T> | ApiError | null
 
   if (!response.ok) {
-    const message = payload && "message" in payload ? payload.message : "Request failed"
+    const message =
+      payload && "message" in payload
+        ? payload.message
+        : payload && "detail" in payload && typeof payload.detail === "string"
+          ? payload.detail
+          : "Request failed"
     throw new Error(message)
   }
 

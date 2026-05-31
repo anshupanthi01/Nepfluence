@@ -8,6 +8,10 @@ async def send_email(
     plain_text: str,
     html_content: str | None = None,
 ) -> None:
+    if not settings.MAIL_USERNAME or not settings.MAIL_PASSWORD.get_secret_value():
+        print(f"Email delivery skipped for local dev. Subject: {subject}. To: {to_email}")
+        return
+
     message = EmailMessage()
     message["From"] = settings.MAIL_FROM
     message["To"] = to_email

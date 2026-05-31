@@ -20,7 +20,8 @@ except ModuleNotFoundError:
 
 router = APIRouter(tags=["auth"])
 
-oauth = OAuth() if OAuth else None
+google_configured = bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET)
+oauth = OAuth() if OAuth and google_configured else None
 if oauth:
     oauth.register(
         name="google",

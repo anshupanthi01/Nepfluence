@@ -1,6 +1,7 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
+import { useEffect, useSyncExternalStore } from "react"
+import { apiClient } from "@/lib/api-client"
 
 export type CampaignStatus = "DRAFT" | "OPEN" | "PAUSED" | "CLOSED" | "COMPLETED"
 export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED"
@@ -72,11 +73,19 @@ export type MarketplaceMessage = {
   createdAt: string
 }
 
-type MarketplaceState = {
+export type CreatorDiscoveryDecision = {
+  handle: string
+  creator: string
+  status: "SELECTED" | "REJECTED"
+  decidedAt: string
+}
+
+export type MarketplaceState = {
   campaigns: MarketplaceCampaign[]
   applications: MarketplaceApplication[]
   collaborations: MarketplaceCollaboration[]
   messages: MarketplaceMessage[]
+  discoveryDecisions: CreatorDiscoveryDecision[]
 }
 
 type CreatorProfile = {
@@ -91,6 +100,7 @@ type CreatorProfile = {
 const storeKey = "nepfluence-marketplace-state-v1"
 const storeEvent = "nepfluence-marketplace-updated"
 let cachedState: MarketplaceState | null = null
+let remoteSyncStarted = false
 
 const initialState: MarketplaceState = {
   campaigns: [
@@ -217,6 +227,7 @@ const initialState: MarketplaceState = {
       createdAt: "2026-05-29T08:20:00.000Z",
     },
   ],
+  discoveryDecisions: [],
 }
 
 function readState(): MarketplaceState {
@@ -258,13 +269,38 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
       }
     }),
     messages: state.messages ?? initialState.messages,
+    discoveryDecisions: state.discoveryDecisions ?? [],
   }
 }
 
 function writeState(nextState: MarketplaceState) {
+  if (typeof window === "undefined") return
+
   cachedState = nextState
   window.localStorage.setItem(storeKey, JSON.stringify(nextState))
   window.dispatchEvent(new Event(storeEvent))
+}
+
+async function loadRemoteState() {
+  try {
+    const remoteState = await apiClient<MarketplaceState>("/api/marketplace/state")
+    writeState(normalizeState(remoteState))
+  } catch {
+    remoteSyncStarted = false
+    return
+  }
+}
+
+async function persistRemoteState(nextState: MarketplaceState) {
+  try {
+    const remoteState = await apiClient<MarketplaceState>("/api/marketplace/state", {
+      method: "PUT",
+      body: JSON.stringify(nextState),
+    })
+    writeState(normalizeState(remoteState))
+  } catch {
+    return
+  }
 }
 
 function getSnapshot() {
@@ -297,7 +333,14 @@ export function useMarketplaceStore() {
   function commit(updater: (current: MarketplaceState) => MarketplaceState) {
     const nextState = updater(readState())
     writeState(nextState)
+    void persistRemoteState(nextState)
   }
+
+  useEffect(() => {
+    if (remoteSyncStarted) return
+    remoteSyncStarted = true
+    void loadRemoteState()
+  }, [])
 
   return {
     ...state,
@@ -453,6 +496,20 @@ export function useMarketplaceStore() {
             roomId,
             createdAt: new Date().toISOString(),
           },
+        ],
+      }))
+    },
+    decideCreatorDiscovery(creator: Pick<CreatorDiscoveryDecision, "creator" | "handle">, status: CreatorDiscoveryDecision["status"]) {
+      commit((current) => ({
+        ...current,
+        discoveryDecisions: [
+          {
+            creator: creator.creator,
+            handle: creator.handle,
+            status,
+            decidedAt: new Date().toISOString(),
+          },
+          ...current.discoveryDecisions.filter((decision) => decision.handle !== creator.handle),
         ],
       }))
     },

@@ -14,6 +14,8 @@ from src.campaign.routes import router as campaign_router
 from src.campaign_proposal.routes import router as campaign_proposal_router
 from src.google_auth import router as google_auth_router
 from src.integrations.youtube.routes import router as youtube_router
+from src.marketplace.routes import router as marketplace_router
+from src.contact.routes import router as contact_router
 
 
 async def ensure_sqlite_schema(conn) -> None:
@@ -48,7 +50,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to specific origins in production
+    allow_origins=[
+        settings.FRONTEND_URL,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,6 +75,8 @@ app.include_router(influencer_router)
 app.include_router(campaign_router)
 app.include_router(campaign_proposal_router)
 app.include_router(youtube_router)  # ✅ moved here
+app.include_router(marketplace_router)
+app.include_router(contact_router)
 
 
 @app.get("/")

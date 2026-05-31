@@ -31,50 +31,50 @@ export function BrandDashboardHome({
   onReviewApplication,
 }: BrandDashboardHomeProps) {
   return (
-    <div className="space-y-5">
-      <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <div className="overflow-hidden rounded-[8px] border border-[#dfe3f2] bg-white shadow-sm">
-          <div className="grid gap-5 bg-[#111322] p-5 text-white lg:grid-cols-[1fr_320px]">
+    <div className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[1fr_340px]">
+        <div className="overflow-hidden rounded-[22px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-sm">
+          <div className="grid gap-5 p-5 text-[#1f252b] lg:grid-cols-[1fr_320px]">
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-black text-[#b9c3ff]">
+              <p className="inline-flex items-center gap-2 rounded-full bg-[#f0ece5] px-3 py-1 text-xs font-black text-[#505852]">
                 <Megaphone className="size-4" aria-hidden="true" />
                 Brand campaign studio
               </p>
-              <h2 className="mt-4 max-w-2xl text-3xl font-black tracking-normal">Run campaigns from brief to payout</h2>
-              <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/72">
+              <h2 className="mt-4 max-w-2xl text-4xl font-black tracking-tight">Run campaigns from brief to payout</h2>
+              <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-[#69716b]">
                 Manage campaign drafts, creator applications, escrow deposits, collaboration rooms, deliverables, and trust signals from one polished brand workspace.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Button className="h-10 rounded-[8px] bg-[#7894ff] px-4 text-sm font-black text-white hover:bg-[#6f86f4]" type="button" onClick={onCreateCampaign}>
+                <Button className="h-10 rounded-full bg-[#1f252b] px-5 text-xs font-black text-white hover:bg-[#303840]" type="button" onClick={onCreateCampaign}>
                   Create campaign <ChevronRight className="size-4" aria-hidden="true" />
                 </Button>
-                <Button className="h-10 rounded-[8px] border-white/15 bg-white/10 px-4 text-sm font-black text-white hover:bg-white/15" variant="outline" type="button" onClick={onDiscoverCreators}>
+                <Button className="h-10 rounded-full border-[#ded8cf] bg-white px-5 text-xs font-black text-[#1f252b] hover:bg-[#f5f1ea]" variant="outline" type="button" onClick={onDiscoverCreators}>
                   Discover creators <UsersRound className="size-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>
-            <div className="overflow-hidden rounded-[8px] border border-white/12 bg-white/8">
-              <div className="h-36 bg-cover bg-center" style={{ backgroundImage: `url(${campaignImage(campaigns[0] ?? initialCampaigns[0])})` }} />
+            <div className="overflow-hidden rounded-[20px] border border-[#e8e2d9] bg-white">
+              <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${campaignImage(campaigns[0] ?? initialCampaigns[0])})` }} />
               <div className="p-4">
-                <p className="text-xs font-black uppercase text-[#b9c3ff]">Featured live campaign</p>
-                <p className="mt-1 text-lg font-black">{campaigns[0]?.title ?? "Himal Glow winter launch"}</p>
-                <p className="mt-1 text-sm font-bold text-white/62">{campaigns[0]?.applications ?? 18} applications in review</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Featured live campaign</p>
+                <p className="mt-1 text-base font-black">{campaigns[0]?.title ?? "Himal Glow winter launch"}</p>
+                <p className="mt-1 text-xs font-semibold text-[#69716b]">{campaigns[0]?.applications ?? 18} applications in review</p>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 border-t border-[#e8e2d9] p-5 sm:grid-cols-2 xl:grid-cols-4">
             {analytics.map((item) => {
               const Icon = item.icon
 
               return (
-                <div key={item.label} className="rounded-[8px] border border-[#edf0f6] bg-[#fbfcff] p-4">
-                  <span className="grid size-9 place-items-center rounded-[8px] bg-[#eef1ff] text-[#6174f8]">
+                <div key={item.label} className="rounded-[18px] border border-[#e8e2d9] bg-white p-4">
+                  <span className="grid size-9 place-items-center rounded-full bg-[#f0ece5] text-[#1f252b]">
                     <Icon className="size-4" aria-hidden="true" />
                   </span>
-                  <div className="mt-4 text-3xl font-black">{item.value}</div>
-                  <div className="mt-1 text-sm font-black text-[#484b57]">{item.label}</div>
-                  <div className="mt-1 text-xs font-bold text-[#8a909f]">{item.detail}</div>
+                  <div className="mt-4 text-2xl font-black tracking-tight">{item.value}</div>
+                  <div className="mt-1 text-xs font-black text-[#505852]">{item.label}</div>
+                  <div className="mt-1 text-xs font-semibold text-[#8a8175]">{item.detail}</div>
                 </div>
               )
             })}

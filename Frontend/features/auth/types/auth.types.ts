@@ -6,5 +6,6 @@ export type AuthSession = {
   userId: string
   email: string
   role: UserRole
+  accessToken: string
   accessTokenExpiresAt: string
 }
