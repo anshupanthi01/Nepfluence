@@ -1,148 +1,110 @@
-import { ArrowRight, BadgeCheck, MapPin } from "lucide-react"
+import Link from "next/link"
+import { ArrowRight, BadgeCheck, MessageSquare, Search, ShieldCheck, Sparkles } from "lucide-react"
 
-const creatorVideos = [
+const creatorCards = [
   {
-    brand: "Himal Glow",
-    creator: "Aarati",
-    location: "Kathmandu",
-    tag: "Testimonial",
-    flag: "NP",
-    poster: "https://images.unsplash.com/photo-1598550874175-4d0ef436c909?auto=format&fit=crop&w=600&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+    name: "Aarati Rai",
+    handle: "@aaratiugc",
+    niche: "Beauty UGC",
+    image: "https://images.unsplash.com/photo-1598550874175-4d0ef436c909?auto=format&fit=crop&w=640&q=80",
+    sample: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=640&q=80",
   },
   {
-    brand: "Trail Tea",
-    creator: "Nischal",
-    location: "Pokhara",
-    tag: "B-roll",
-    flag: "NP",
-    poster: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    name: "Nischal Gurung",
+    handle: "@trailnischal",
+    niche: "Travel reels",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=640&q=80",
+    sample: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=640&q=80",
   },
   {
-    brand: "Aura Wear",
-    creator: "Sanya",
-    location: "Delhi",
-    tag: "Unboxing",
-    flag: "IN",
-    poster: "https://images.unsplash.com/photo-1606814893907-c2e42943c91f?auto=format&fit=crop&w=600&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-  },
-  {
-    brand: "Cafe Momo",
-    creator: "Pratik",
-    location: "Lalitpur",
-    tag: "Food Reel",
-    flag: "NP",
-    poster: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=600&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-  },
-  {
-    brand: "Serene Skin",
-    creator: "Mira",
-    location: "Bengaluru",
-    tag: "Voiceover",
-    flag: "IN",
-    poster: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=600&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-  },
-  {
-    brand: "Urban Gear",
-    creator: "Kabir",
-    location: "Mumbai",
-    tag: "Meta Ad",
-    flag: "IN",
-    poster: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+    name: "Sanya Mehta",
+    handle: "@sanyastyle",
+    niche: "Fashion",
+    image: "https://images.unsplash.com/photo-1606814893907-c2e42943c91f?auto=format&fit=crop&w=640&q=80",
+    sample: "https://images.unsplash.com/photo-1487412912498-0447578fcca8?auto=format&fit=crop&w=640&q=80",
   },
 ]
 
-const repeatedVideos = [...creatorVideos, ...creatorVideos]
-
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,#eef3ff_0%,#ffffff_48%,#d9d1ff_100%)] pt-16 text-center font-[Arial,Helvetica,sans-serif] sm:pt-20 lg:pt-24">
-      <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_12%_0%,rgba(111,132,255,0.2),transparent_28%),radial-gradient(circle_at_88%_8%,rgba(168,143,255,0.22),transparent_24%)]" />
+    <section className="bg-[#f5f3ef] px-4 pb-10 pt-8 font-sans text-[#1f252b] sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+        <div className="py-6">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#e8e2d9] bg-[#fbfaf7] px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#69716b]">
+            <Sparkles className="size-4 text-[#1f252b]" aria-hidden="true" />
+            Creator campaigns, simplified
+          </span>
 
-      <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-5">
-        <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full bg-white/86 px-4 py-2 text-xs font-extrabold text-black shadow-[0_8px_28px_rgba(54,50,100,0.12)] ring-1 ring-black/5 sm:gap-2 sm:px-5 sm:text-[15px]">
-          <BadgeCheck className="size-4 fill-[#7894ff] text-white sm:size-5" aria-hidden="true" />
-          <span>Get creators from Nepal</span>
-          <span className="hidden sm:inline">-</span>
-          {/* <span className="inline-flex items-center gap-1">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Star key={index} className="size-3.5 fill-[#f7b733] text-[#f7b733] sm:size-4" aria-hidden="true" />
-            ))}
-            4.9 rating
-          </span> */}
+          <h1 className="mt-6 max-w-2xl text-5xl font-black leading-[0.96] tracking-tight text-[#1f252b] sm:text-6xl lg:text-7xl">
+            Find creators who make your brand feel local.
+          </h1>
+          <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-[#69716b] sm:text-lg">
+            Nepfluence helps brands discover Nepali and Indian creators, manage campaign briefs, keep conversations clear, and move collaborations toward payout.
+          </p>
+
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <Link className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#1f252b] px-6 text-sm font-black text-white shadow-[0_14px_28px_rgba(31,37,43,0.18)] transition hover:-translate-y-0.5 hover:bg-[#363d43]" href="/register?role=brand">
+              Start as a brand
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+            <Link className="inline-flex h-12 items-center justify-center rounded-full border border-[#ded8cf] bg-[#fbfaf7] px-6 text-sm font-black text-[#1f252b] transition hover:bg-white" href="/register?role=creator">
+              Join as a creator
+            </Link>
+          </div>
+
+          <div className="mt-8 grid max-w-xl gap-2 sm:grid-cols-3">
+            <HeroSignal icon={Search} label="Discover" text="Creator fit by niche and country" />
+            <HeroSignal icon={MessageSquare} label="Contact" text="In-app and email outreach" />
+            <HeroSignal icon={ShieldCheck} label="Track" text="Briefs, escrow, and payout flow" />
+          </div>
         </div>
 
-        <h1 className="mt-6 max-w-[1180px] text-[2.15rem] font-black leading-[1.08] tracking-normal text-black sm:text-[2.9rem] lg:text-[2.75rem] xl:whitespace-nowrap xl:text-[2.65rem]">
-          Get influencer UGC video ads that convert, fast!
-        </h1>
-
-        <p className="mt-5 max-w-3xl text-base font-medium leading-7 text-black sm:text-lg lg:text-xl">
-          We match brands with verified creators so campaigns feel local, move quickly, and produce content people trust.
-        </p>
-{/* 
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <HeroBadge icon={<Coins className="size-5 text-[#f7b733]" aria-hidden="true" />} text="UGC videos starting at NPR 8,999" />
-          <HeroBadge icon={<Globe2 className="size-5 text-[#4b74ff]" aria-hidden="true" />} text="10,000+ creators across Nepal and India" />
-          <HeroBadge icon={<Infinity className="size-5 text-[#7d45ff]" aria-hidden="true" />} text="Unlimited revisions and usage rights" />
-        </div> */}
-
-        <a
-          href="/register?role=brand"
-          className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#5471d8] bg-[#7894ff] px-7 py-3.5 text-[15px] font-extrabold text-white shadow-[0_12px_24px_rgba(69,94,203,0.34)] transition hover:-translate-y-0.5 hover:bg-[#6f86f4] sm:px-8 sm:py-4 sm:text-base"
-        >
-          Get Started <ArrowRight className="size-5" aria-hidden="true" />
-        </a>
-      </div>
-
-      <div className="relative z-10 mt-8 w-full overflow-hidden pb-9">
-        <div className="hero-video-marquee flex w-max gap-5 px-5">
-          {repeatedVideos.map((item, index) => (
-            <article
-              key={`${item.brand}-${index}`}
-              className="relative h-[332px] w-[192px] shrink-0 overflow-hidden rounded-[8px] bg-white shadow-[0_10px_24px_rgba(34,32,56,0.14)] ring-1 ring-black/5 sm:h-[386px] sm:w-[220px]"
-            >
-              <video
-                className="h-full w-full object-cover"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="none"
-                poster={item.poster}
-                src={item.video}
-              />
-              <div className="absolute inset-x-0 top-0 flex items-center justify-between p-2.5">
-                <span className="max-w-[132px] truncate rounded-full bg-white px-2.5 py-1 text-[11px] font-black leading-none text-black shadow">
-                  {item.brand}
-                </span>
-              </div>
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/38 via-black/10 to-transparent" />
-              <span className="absolute bottom-[46px] left-2.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-black leading-none text-black shadow">
-                {item.tag}
-              </span>
-              <div className="absolute inset-x-0 bottom-0 flex h-10 items-center gap-2 rounded-b-[8px] bg-white/96 px-2.5 shadow-[0_-6px_18px_rgba(20,18,40,0.08)]">
-                <div className="grid size-6 shrink-0 place-items-center rounded-full bg-[#e9edff] text-[10px] font-black text-[#5368e8]">
-                  {item.creator.charAt(0)}
+        <div className="relative">
+          <div className="overflow-hidden rounded-[34px] border border-[#e8e2d9] bg-[#fbfaf7] p-3 shadow-[0_24px_70px_rgba(31,37,43,0.12)]">
+            <div className="rounded-[28px] bg-white p-4">
+              <div className="flex items-center justify-between border-b border-[#e8e2d9] pb-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Brand workspace</p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight">Discover creators</h2>
                 </div>
-                <div className="min-w-0 flex-1 text-left leading-none">
-                  <div className="truncate text-[11px] font-black text-black">{item.creator}</div>
-                  <div className="mt-1 flex items-center gap-1 truncate text-[10px] font-bold text-[#a8afbd]">
-                    <MapPin className="size-3 fill-[#c5cad4] text-[#c5cad4]" aria-hidden="true" />
-                    <span className="truncate">{item.location}</span>
-                  </div>
-                </div>
-                <span className="shrink-0 text-[11px] font-black text-[#6a7280]">{item.flag}</span>
+                <span className="rounded-full bg-[#f0ece5] px-3 py-1 text-xs font-black text-[#505852]">MVP ready</span>
               </div>
-            </article>
-          ))}
+
+              <div className="mt-4 space-y-3">
+                {creatorCards.map((creator) => (
+                  <article key={creator.handle} className="grid grid-cols-[72px_1fr_92px] items-center gap-3 rounded-[22px] border border-[#e8e2d9] bg-[#fbfaf7] p-3">
+                    <div className="size-[72px] rounded-[20px] bg-cover bg-center" style={{ backgroundImage: `url(${creator.image})` }} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-sm font-black">{creator.name}</h3>
+                        <BadgeCheck className="size-4 text-[#16864f]" aria-hidden="true" />
+                      </div>
+                      <p className="mt-1 truncate text-xs font-black text-[#8a8175]">{creator.handle}</p>
+                      <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">{creator.niche} creator available for product demos and campaign content.</p>
+                    </div>
+                    <div className="h-20 rounded-[18px] bg-cover bg-center" style={{ backgroundImage: `url(${creator.sample})` }} />
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute -bottom-5 left-5 hidden rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] p-4 shadow-[0_18px_46px_rgba(31,37,43,0.12)] sm:block">
+            <p className="text-xs font-black text-[#1f252b]">Campaign flow</p>
+            <p className="mt-1 text-xs font-semibold text-[#69716b]">Find, contact, collaborate, pay.</p>
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
+function HeroSignal({ icon: Icon, label, text }: { icon: typeof Search; label: string; text: string }) {
+  return (
+    <div className="rounded-[22px] border border-[#e8e2d9] bg-[#fbfaf7] p-4">
+      <Icon className="size-4 text-[#1f252b]" aria-hidden="true" />
+      <p className="mt-3 text-sm font-black text-[#1f252b]">{label}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-[#69716b]">{text}</p>
+    </div>
+  )
+}

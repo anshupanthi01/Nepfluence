@@ -5,117 +5,93 @@ const footerLinks = [
   {
     title: "Platform",
     links: [
-      { label: "Products", href: "/" },
+      { label: "Home", href: "/" },
       { label: "Pricing", href: "/pricing" },
       { label: "About", href: "/about" },
     ],
   },
   {
-    title: "For teams",
+    title: "Workspaces",
     links: [
-      { label: "Brands", href: "/login?role=brand" },
-      { label: "Creators", href: "/login?role=creator" },
-      { label: "Get started", href: "/register?role=brand" },
+      { label: "Brand login", href: "/login?role=brand" },
+      { label: "Creator login", href: "/login?role=creator" },
+      { label: "Create account", href: "/register?role=brand" },
     ],
   },
 ]
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/10 bg-[#080a12] font-[Arial,Helvetica,sans-serif] text-white">
-      <div className="mx-auto grid w-[calc(100%-2rem)] max-w-[1200px] gap-10 px-1 py-12 md:grid-cols-[1.3fr_1fr] lg:py-14">
-        <div>
-          <Link href="/" className="inline-flex items-center gap-3" aria-label="Nepfluence home">
-            <span className="relative grid size-9 rotate-[-35deg] grid-cols-3 gap-1 rounded-xl">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <span
-                  key={index}
-                  className="rounded-full bg-[#7b7df8]"
-                  style={{ opacity: index % 2 === 0 ? 1 : 0.62 }}
-                />
-              ))}
-            </span>
-            <span className="text-[1.45rem] font-black tracking-normal text-white">
-              nepfluence
-            </span>
-          </Link>
-          <p className="mt-5 max-w-md text-base font-medium leading-7 text-[#b8bdca]">
-            Helping Nepali brands find creator fit, manage campaigns, and keep every collaboration moving clearly.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/register?role=brand"
-              className="inline-flex items-center gap-2 rounded-full bg-[#7894ff] px-5 py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(69,94,203,0.25)] transition hover:-translate-y-0.5 hover:bg-[#6f86f4]"
-            >
-              Start a campaign
-              <ArrowRight className="size-4 stroke-[2.6]" aria-hidden="true" />
-            </Link>
-            <Link
-              href="/login?role=creator"
-              className="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-5 py-3 text-sm font-extrabold text-white transition hover:border-white/25 hover:bg-white/12"
-            >
-              Join as creator
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid gap-8 sm:grid-cols-2">
-          {footerLinks.map((group) => (
-            <div key={group.title}>
-              <h2 className="text-sm font-black uppercase tracking-normal text-[#90a2ff]">
-                {group.title}
-              </h2>
-              <ul className="mt-4 space-y-3">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm font-bold text-[#c7cad4] transition hover:text-white"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
+    <footer className="bg-[#f5f3ef] px-4 pb-5 pt-4 font-sans text-[#1f252b] sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl overflow-hidden rounded-[34px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_46px_rgba(31,37,43,0.07)]">
+        <div className="grid gap-8 p-6 md:grid-cols-[1.2fr_0.8fr] lg:p-8">
+          <div>
+            <Link href="/" className="inline-flex items-center gap-3" aria-label="Nepfluence home">
+              <span className="grid size-8 rotate-[-35deg] grid-cols-3 gap-1">
+                {Array.from({ length: 9 }).map((_, index) => (
+                  <span key={index} className="rounded-full bg-[#1f252b]" style={{ opacity: index % 2 === 0 ? 1 : 0.34 }} />
                 ))}
-              </ul>
+              </span>
+              <span className="text-lg font-black tracking-tight">nepfluence</span>
+            </Link>
+            <p className="mt-5 max-w-md text-sm font-semibold leading-6 text-[#69716b]">
+              Helping brands and creators in Nepal keep discovery, outreach, campaigns, and payouts in one clean workspace.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Link className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1f252b] px-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#363d43]" href="/register?role=brand">
+                Start a campaign
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+              <Link className="inline-flex h-10 items-center rounded-full border border-[#ded8cf] bg-white px-4 text-sm font-black text-[#1f252b] transition hover:bg-[#f5f1ea]" href="/register?role=creator">
+                Join as creator
+              </Link>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex w-[calc(100%-2rem)] max-w-[1200px] flex-col gap-4 px-1 py-5 text-sm font-bold text-[#aeb3c2] md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5">
-            <span>© {new Date().getFullYear()} Nepfluence. All rights reserved.</span>
-            <span className="inline-flex items-center gap-2">
-              <MapPin className="size-4 text-[#90a2ff]" aria-hidden="true" />
-              Kathmandu, Nepal
-            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <a
-              href="mailto:hello@nepfluence.com"
-              className="inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/8 text-[#c7cad4] transition hover:border-white/25 hover:bg-white/12 hover:text-white"
-              aria-label="Email Nepfluence"
-            >
-              <Mail className="size-4" aria-hidden="true" />
-            </a>
-            <a
-              href="https://www.instagram.com/"
-              className="inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/8 text-[#c7cad4] transition hover:border-white/25 hover:bg-white/12 hover:text-white"
-              aria-label="Nepfluence community"
-            >
-              <Send className="size-4" aria-hidden="true" />
-            </a>
-            <a
-              href="https://www.linkedin.com/"
-              className="inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-white/8 text-[#c7cad4] transition hover:border-white/25 hover:bg-white/12 hover:text-white"
-              aria-label="Nepfluence website"
-            >
-              <Globe className="size-4" aria-hidden="true" />
-            </a>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            {footerLinks.map((group) => (
+              <div key={group.title}>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">{group.title}</h2>
+                <ul className="mt-4 space-y-3">
+                  {group.links.map((link) => (
+                    <li key={link.label}>
+                      <Link className="text-sm font-bold text-[#69716b] transition hover:text-[#1f252b]" href={link.href}>
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-[#e8e2d9] bg-[#f5f3ef] px-6 py-4 lg:px-8">
+          <div className="flex flex-col gap-4 text-sm font-semibold text-[#69716b] md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5">
+              <span>© {new Date().getFullYear()} Nepfluence. All rights reserved.</span>
+              <span className="inline-flex items-center gap-2">
+                <MapPin className="size-4 text-[#8a8175]" aria-hidden="true" />
+                Kathmandu, Nepal
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <FooterIcon href="mailto:hello@nepfluence.com" label="Email Nepfluence" icon={Mail} />
+              <FooterIcon href="https://www.instagram.com/" label="Nepfluence community" icon={Send} />
+              <FooterIcon href="https://www.linkedin.com/" label="Nepfluence website" icon={Globe} />
+            </div>
           </div>
         </div>
       </div>
     </footer>
+  )
+}
+
+function FooterIcon({ href, icon: Icon, label }: { href: string; icon: typeof Mail; label: string }) {
+  return (
+    <a className="grid size-9 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b] transition hover:border-[#1f252b] hover:text-[#1f252b]" href={href} aria-label={label}>
+      <Icon className="size-4" aria-hidden="true" />
+    </a>
   )
 }
