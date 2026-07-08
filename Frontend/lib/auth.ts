@@ -2,6 +2,7 @@ import type { AuthSession, UserRole } from "@/features/auth/types/auth.types"
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 const sessionKey = "nepfluence-session"
+const sessionUpdatedEvent = "nepfluence-session-updated"
 const creatorOnboardingPrefix = "nepfluence-creator-onboarding"
 const brandOnboardingPrefix = "nepfluence-brand-onboarding"
 
@@ -51,6 +52,7 @@ function tokenExpiry() {
 function saveSession(session: AuthSession) {
   if (typeof window === "undefined") return null
   window.localStorage.setItem(sessionKey, JSON.stringify(session))
+  window.dispatchEvent(new Event(sessionUpdatedEvent))
   return session
 }
 
@@ -203,6 +205,7 @@ export function mockLogin(role: UserRole, email = "demo@nepfluence.com", accessT
 export function mockLogout() {
   if (typeof window === "undefined") return
   window.localStorage.removeItem(sessionKey)
+  window.dispatchEvent(new Event(sessionUpdatedEvent))
 }
 
 export const logout = mockLogout
