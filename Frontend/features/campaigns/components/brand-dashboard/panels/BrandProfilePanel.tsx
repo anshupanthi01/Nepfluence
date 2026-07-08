@@ -33,7 +33,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react"
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { changePassword, updateAccount } from "@/features/account/api/accountApi"
 import { createMyBrandProfile, getMyBrandProfile, updateMyBrandProfile } from "@/features/brand-profile/api/brandProfileApi"
@@ -103,11 +103,13 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
     company_name: defaultBrandName,
     industry: "",
     website: "",
-    company_size: "Kathmandu, Nepal",
-    description: "Add your brand story so creators understand your campaign style.",
+    company_size: "",
+    description: "",
   })
+  const completedProfileFields = [form.company_name, form.industry, form.website, form.description, campaigns.length ? "campaigns" : ""].filter(Boolean).length
+  const profileCompletion = Math.round((completedProfileFields / 5) * 100)
 
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     if (profileLoaded) return
     setProfileLoaded(true)
     try {
@@ -124,7 +126,7 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Unable to load brand profile.")
     }
-  }
+  }, [profileLoaded])
 
   async function saveProfile() {
     setIsSaving(true)
@@ -198,7 +200,7 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
 
   useEffect(() => {
     void loadProfile()
-  }, [])
+  }, [loadProfile])
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
@@ -212,7 +214,7 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
               <div className="min-w-0">
                 <p className="inline-flex items-center gap-1 rounded-full bg-[#f0ece5] px-2.5 py-1 text-[11px] font-black text-[#4d5751]">
                   <BadgeCheck className="size-3.5" aria-hidden="true" />
-                  Verified brand
+                  Brand account
                 </p>
                 <h2 className="mt-3 text-3xl font-black tracking-tight text-[#1f252b]">{form.company_name}</h2>
                 <p className="mt-1 text-sm font-semibold text-[#69716b]">{form.industry || "Industry not set"} - {form.company_size || "Location not set"}</p>
@@ -316,12 +318,12 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <MiniReviewStat label="Live" value={liveCampaigns.toString()} />
                 <MiniReviewStat label="Spend" value={money(totalSpend)} />
-                <MiniReviewStat label="Rating" value="4.8" />
+                <MiniReviewStat label="Rating" value={collaborations.length ? "Active" : "New"} />
               </div>
               <div className="mt-4 space-y-2 text-xs font-bold text-[#505852]">
-                <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><ShieldCheck className="size-4 text-[#16864f]" /> Escrow-backed collaborations</p>
-                <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><BadgeCheck className="size-4 text-[#1f252b]" /> Verified campaign owner</p>
-                <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><Star className="size-4 fill-[#b78c35] text-[#b78c35]" /> Strong creator response quality</p>
+                <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><ShieldCheck className="size-4 text-[#16864f]" /> {collaborations.length ? "Escrow-backed collaborations active" : "No collaborations yet"}</p>
+                <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><BadgeCheck className="size-4 text-[#1f252b]" /> {campaigns.length ? "Campaign owner profile started" : "Create a campaign to start trust history"}</p>
+                <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><Star className="size-4 text-[#b78c35]" /> {collaborations.length ? "Creator response history available" : "No creator response history yet"}</p>
               </div>
             </div>
           </div>
@@ -335,11 +337,10 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
               <span className="rounded-full bg-[#f0ece5] px-3 py-1 text-[11px] font-black text-[#505852]">Public to creators</span>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {[
-                "Natural product close-ups in first 3 seconds.",
-                "Creator voiceover preferred over heavy text overlays.",
-                "No exaggerated medical claims or copyrighted sounds.",
-              ].map((rule) => (
+              {(form.description
+                ? ["Brand story added.", "Campaign briefs will define deliverables.", "Creator requirements can be added per campaign."]
+                : ["Add your brand story.", "Create your first campaign brief.", "Creator requirements will appear after campaigns are created."]
+              ).map((rule) => (
                 <div key={rule} className="rounded-[18px] bg-[#fbfaf7] p-4 text-xs font-semibold leading-5 text-[#505852]">
                   {rule}
                 </div>
@@ -372,9 +373,9 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
         <div className="rounded-[22px] border border-[#e8e2d9] bg-[#fbfaf7] p-4 shadow-sm">
           <h3 className="text-base font-black tracking-tight">Profile completeness</h3>
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#e8e2d9]">
-            <div className="h-full w-[86%] rounded-full bg-[#1f252b]" />
+            <div className="h-full rounded-full bg-[#1f252b]" style={{ width: `${profileCompletion}%` }} />
           </div>
-          <p className="mt-3 text-xs font-semibold leading-5 text-[#69716b]">86% complete. Add legal billing details and campaign media kit.</p>
+          <p className="mt-3 text-xs font-semibold leading-5 text-[#69716b]">{profileCompletion}% complete. Add brand details, website, story, and first campaign to improve this profile.</p>
         </div>
       </aside>
     </section>

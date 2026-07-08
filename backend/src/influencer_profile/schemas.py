@@ -76,3 +76,17 @@ class YouTubeStatsPublic(BaseModel):
 class InfluencerProfileWithSocialsAndStatsPublic(InfluencerProfilePublic):
     social_accounts: List[SocialAccountPublic] = []
     youtube_stats: List[YouTubeStatsPublic] = []
+
+
+class CreatorDirectoryPublic(BaseModel):
+    id: int
+    user_id: int
+    full_name: str
+    handle: str
+    country: str | None = None
+    niche: str
+    followers: str = "0"
+    rating: str = "New"
+    bio: str | None = None
+    image: str | None = None
+    platforms: list[str] = []

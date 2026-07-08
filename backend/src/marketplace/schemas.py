@@ -9,6 +9,8 @@ EscrowStatus = Literal["NOT_REQUIRED", "PENDING", "HELD", "RELEASED"]
 CollaborationState = Literal["ESCROW_PENDING", "IN_PROGRESS", "SUBMITTED", "APPROVED"]
 Country = Literal["NP", "IN"]
 Sender = Literal["brand", "creator"]
+WalletRole = Literal["brand", "creator"]
+LedgerType = Literal["ESCROW_DEPOSIT", "PAYOUT_RELEASE"]
 
 
 class DeliverableChecklist(BaseModel):
@@ -30,6 +32,7 @@ class DeliverableSubmission(BaseModel):
 
 class MarketplaceCampaign(BaseModel):
     id: int
+    brandUserId: str | None = None
     brand: str
     title: str
     niche: str
@@ -46,6 +49,7 @@ class MarketplaceCampaign(BaseModel):
 
 class MarketplaceApplication(BaseModel):
     id: int
+    creatorUserId: str | None = None
     creator: str
     handle: str
     country: Country
@@ -58,6 +62,8 @@ class MarketplaceApplication(BaseModel):
 
 class MarketplaceCollaboration(BaseModel):
     id: int
+    brandUserId: str | None = None
+    creatorUserId: str | None = None
     campaign: str
     campaignId: int
     brand: str
@@ -78,6 +84,24 @@ class MarketplaceMessage(BaseModel):
     createdAt: str
 
 
+class MarketplaceWallet(BaseModel):
+    userId: str
+    role: WalletRole
+    balance: int = 0
+    escrowHeld: int = 0
+    released: int = 0
+
+
+class MarketplaceLedgerEntry(BaseModel):
+    id: int
+    collaborationId: int
+    fromUserId: str | None = None
+    toUserId: str | None = None
+    type: LedgerType
+    amount: int
+    createdAt: str
+
+
 class CreatorDiscoveryDecision(BaseModel):
     handle: str
     creator: str
@@ -90,4 +114,6 @@ class MarketplaceState(BaseModel):
     applications: list[MarketplaceApplication]
     collaborations: list[MarketplaceCollaboration]
     messages: list[MarketplaceMessage]
+    wallets: list[MarketplaceWallet] = Field(default_factory=list)
+    ledger: list[MarketplaceLedgerEntry] = Field(default_factory=list)
     discoveryDecisions: list[CreatorDiscoveryDecision] = Field(default_factory=list)

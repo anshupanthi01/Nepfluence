@@ -100,6 +100,12 @@ export function CampaignsPanel({
             </div>
           </article>
         ))}
+        {visibleCampaigns.length === 0 && (
+          <div className="rounded-[22px] border border-dashed border-[#ded8cf] bg-white p-8 text-center md:col-span-2 xl:col-span-3">
+            <p className="text-sm font-black text-[#1f252b]">No campaigns available yet</p>
+            <p className="mt-2 text-xs font-semibold text-[#69716b]">Brand campaigns will appear here after real brands publish them.</p>
+          </div>
+        )}
       </div>
     </section>
   )

@@ -77,6 +77,17 @@ export function ProfilePanel({
   }, [creatorProfile])
 
   const connectionStatus = creatorProfile.connectedPlatforms.length ? "Socials connected" : "Socials not connected"
+  const profileScore = Math.round(
+    ([
+      creatorProfile.creator,
+      creatorProfile.niche !== "Profile not set" ? creatorProfile.niche : "",
+      creatorProfile.location !== "Location not set" ? creatorProfile.location : "",
+      creatorProfile.bio,
+      creatorProfile.connectedPlatforms.length ? "socials" : "",
+    ].filter(Boolean).length /
+      5) *
+      100,
+  )
 
   async function saveProfile() {
     setIsSaving(true)
@@ -324,8 +335,8 @@ export function ProfilePanel({
         <div className="rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_18px_46px_rgba(31,37,43,0.07)]">
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Creator score</p>
           <div className="mt-4 rounded-[24px] bg-[#1f252b] p-6 text-center text-white">
-            <div className="text-5xl font-black">{creatorProfile.connectedPlatforms.length ? "70" : "20"}</div>
-            <p className="mt-2 text-sm font-semibold text-white/72">{creatorProfile.connectedPlatforms.length ? "Social profile started" : "Profile draft"}</p>
+            <div className="text-5xl font-black">{profileScore}</div>
+            <p className="mt-2 text-sm font-semibold text-white/72">{profileScore === 100 ? "Profile complete" : "Profile completion"}</p>
           </div>
           <div className="mt-4 space-y-2">
             {["Connect at least one social account", "Add recent content samples", "Complete payout verification"].map((item) => (

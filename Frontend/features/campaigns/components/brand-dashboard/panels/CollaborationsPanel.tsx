@@ -95,6 +95,12 @@ export function CollaborationsPanel({
             </div>
           </article>
         ))}
+        {collaborations.length === 0 && (
+          <div className="rounded-[22px] border border-dashed border-[#ded8cf] bg-white p-8 text-center lg:col-span-2">
+            <p className="text-sm font-black text-[#1f252b]">No collaborations yet</p>
+            <p className="mt-2 text-xs font-semibold text-[#69716b]">Accepted applications will create collaboration rooms here.</p>
+          </div>
+        )}
       </div>
     </section>
   )

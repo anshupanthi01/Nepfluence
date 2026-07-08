@@ -31,7 +31,7 @@ export function CampaignFormModal({
 
         <div className="grid gap-4 p-5 md:grid-cols-2">
           <Field label="Campaign title">
-            <input required className="input" value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="e.g. Himal Glow creator launch" />
+            <input required className="input" value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="e.g. Summer creator launch" />
           </Field>
           <Field label="Niche">
             <select className="input" value={form.niche} onChange={(event) => onChange({ ...form, niche: event.target.value })}>

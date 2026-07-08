@@ -17,6 +17,19 @@ async def get_by_user_id(db: AsyncSession, user_id: int) -> InfluencerProfile | 
     return result.scalars().first()
 
 
+async def list_available(db: AsyncSession) -> list[InfluencerProfile]:
+    result = await db.execute(
+        select(InfluencerProfile)
+        .options(
+            selectinload(InfluencerProfile.social_accounts),
+            selectinload(InfluencerProfile.user),
+        )
+        .where(InfluencerProfile.availability.is_(True))
+        .order_by(InfluencerProfile.id.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def create_for_user(
     db: AsyncSession,
     user_id: int,

@@ -19,6 +19,12 @@ export function ActivityPanel({ activities }: { activities: Activity[] }) {
             <p className="text-sm font-semibold leading-6 text-[#505852]">{activity.message}</p>
           </div>
         ))}
+        {activities.length === 0 && (
+          <div className="rounded-[18px] border border-dashed border-[#ded8cf] bg-white p-4 text-center">
+            <p className="text-sm font-black text-[#1f252b]">No activity yet</p>
+            <p className="mt-2 text-xs font-semibold text-[#69716b]">Applications, messages, and deliverables will appear after you start using the workspace.</p>
+          </div>
+        )}
       </div>
     </section>
   )

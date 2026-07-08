@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react"
 import { apiClient } from "@/lib/api-client"
+import { readMockSession } from "@/lib/auth"
 
 export type CampaignStatus = "DRAFT" | "OPEN" | "PAUSED" | "CLOSED" | "COMPLETED"
 export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED"
@@ -25,6 +26,7 @@ export type DeliverableSubmission = {
 
 export type MarketplaceCampaign = {
   id: number
+  brandUserId?: string
   brand: string
   title: string
   niche: string
@@ -41,6 +43,7 @@ export type MarketplaceCampaign = {
 
 export type MarketplaceApplication = {
   id: number
+  creatorUserId?: string
   creator: string
   handle: string
   country: "NP" | "IN"
@@ -53,6 +56,8 @@ export type MarketplaceApplication = {
 
 export type MarketplaceCollaboration = {
   id: number
+  brandUserId?: string
+  creatorUserId?: string
   campaign: string
   campaignId: number
   brand: string
@@ -73,6 +78,24 @@ export type MarketplaceMessage = {
   createdAt: string
 }
 
+export type MarketplaceWallet = {
+  userId: string
+  role: "brand" | "creator"
+  balance: number
+  escrowHeld: number
+  released: number
+}
+
+export type MarketplaceLedgerEntry = {
+  id: number
+  collaborationId: number
+  fromUserId?: string
+  toUserId?: string
+  type: "ESCROW_DEPOSIT" | "PAYOUT_RELEASE"
+  amount: number
+  createdAt: string
+}
+
 export type CreatorDiscoveryDecision = {
   handle: string
   creator: string
@@ -85,6 +108,8 @@ export type MarketplaceState = {
   applications: MarketplaceApplication[]
   collaborations: MarketplaceCollaboration[]
   messages: MarketplaceMessage[]
+  wallets: MarketplaceWallet[]
+  ledger: MarketplaceLedgerEntry[]
   discoveryDecisions: CreatorDiscoveryDecision[]
 }
 
@@ -97,137 +122,67 @@ type CreatorProfile = {
   match?: number
 }
 
-const storeKey = "nepfluence-marketplace-state-v1"
+const storeKey = "nepfluence-marketplace-state-v3"
 const storeEvent = "nepfluence-marketplace-updated"
 let cachedState: MarketplaceState | null = null
 let remoteSyncStarted = false
 
 const initialState: MarketplaceState = {
-  campaigns: [
-    {
-      id: 1,
-      brand: "Himal Glow",
-      title: "Himal Glow winter launch",
-      niche: "Beauty",
-      budget: 120000,
-      country: "NP",
-      platform: "Instagram Reels",
-      status: "OPEN",
-      applications: 18,
-      accepted: 2,
-      reach: 284000,
-      deadline: "2026-06-12",
-      brief: "Short UGC videos for a skincare launch with local creator voiceover.",
-    },
-    {
-      id: 2,
-      brand: "8848 Momo House",
-      title: "8848 Momo House reels",
-      niche: "Food",
-      budget: 78000,
-      country: "NP",
-      platform: "TikTok",
-      status: "DRAFT",
-      applications: 0,
-      accepted: 0,
-      reach: 0,
-      deadline: "2026-06-18",
-      brief: "Creator visit and food reaction reels for new menu.",
-    },
-    {
-      id: 3,
-      brand: "Trail Tea",
-      title: "Trail Tea creator stories",
-      niche: "Lifestyle",
-      budget: 95000,
-      country: "IN",
-      platform: "Instagram Stories",
-      status: "PAUSED",
-      applications: 9,
-      accepted: 1,
-      reach: 124000,
-      deadline: "2026-06-22",
-      brief: "Lifestyle story campaign for tea bundles.",
-    },
-  ],
-  applications: [
-    {
-      id: 1,
-      creator: "Aarati Rai",
-      handle: "@aaratiugc",
-      country: "NP",
-      niche: "Beauty UGC",
-      followers: "42K",
-      match: 96,
-      status: "PENDING",
-      campaignId: 1,
-    },
-    {
-      id: 2,
-      creator: "Mira Shrestha",
-      handle: "@miraskin",
-      country: "NP",
-      niche: "Skincare",
-      followers: "31K",
-      match: 91,
-      status: "PENDING",
-      campaignId: 1,
-    },
-    {
-      id: 3,
-      creator: "Kabir Rao",
-      handle: "@kabircreates",
-      country: "IN",
-      niche: "Lifestyle",
-      followers: "103K",
-      match: 84,
-      status: "PENDING",
-      campaignId: 3,
-    },
-  ],
-  collaborations: [
-    {
-      id: 1,
-      campaign: "Himal Glow winter launch",
-      campaignId: 1,
-      brand: "Himal Glow",
-      creator: "Aarati Rai",
-      state: "IN_PROGRESS",
-      escrow: "HELD",
-      deliverable: "First draft due in 2 days",
-      payout: 45000,
-    },
-    {
-      id: 2,
-      campaign: "Trail Tea creator stories",
-      campaignId: 3,
-      brand: "Trail Tea",
-      creator: "Kabir Rao",
-      state: "ESCROW_PENDING",
-      escrow: "PENDING",
-      deliverable: "Chat locked until escrow deposit",
-      payout: 35000,
-    },
-  ],
-  messages: [
-    {
-      id: 1,
-      roomId: 1,
-      sender: "brand",
-      senderName: "Himal Glow",
-      body: "Please keep the product close-up in the first 3 seconds.",
-      createdAt: "2026-05-29T08:15:00.000Z",
-    },
-    {
-      id: 2,
-      roomId: 1,
-      sender: "creator",
-      senderName: "Aarati Rai",
-      body: "Sure, I will submit the first video draft with the product hook today.",
-      createdAt: "2026-05-29T08:20:00.000Z",
-    },
-  ],
+  campaigns: [],
+  applications: [],
+  collaborations: [],
+  messages: [],
+  wallets: [],
+  ledger: [],
   discoveryDecisions: [],
+}
+
+function defaultWallet(userId: string | undefined, role: MarketplaceWallet["role"]): MarketplaceWallet | null {
+  if (!userId) return null
+
+  return {
+    userId,
+    role,
+    balance: role === "brand" ? 150000 : 0,
+    escrowHeld: 0,
+    released: 0,
+  }
+}
+
+function ensureWallet(wallets: MarketplaceWallet[], userId: string | undefined, role: MarketplaceWallet["role"]) {
+  if (!userId) return wallets
+  if (wallets.some((wallet) => wallet.userId === userId && wallet.role === role)) return wallets
+  const wallet = defaultWallet(userId, role)
+  return wallet ? [...wallets, wallet] : wallets
+}
+
+function deriveWallet(state: MarketplaceState, userId: string | undefined, role: MarketplaceWallet["role"]) {
+  const wallet = state.wallets.find((item) => item.userId === userId && item.role === role)
+  if (wallet || !userId) return wallet ?? null
+
+  const collaborations = state.collaborations.filter((collab) =>
+    role === "brand" ? collab.brandUserId === userId : collab.creatorUserId === userId,
+  )
+  const escrowHeld = collaborations.filter((collab) => collab.escrow === "HELD").reduce((sum, collab) => sum + collab.payout, 0)
+  const released = collaborations.filter((collab) => collab.escrow === "RELEASED").reduce((sum, collab) => sum + collab.payout, 0)
+
+  if (role === "brand") {
+    return {
+      userId,
+      role,
+      balance: Math.max(0, 150000 - escrowHeld - released),
+      escrowHeld,
+      released,
+    }
+  }
+
+  return {
+    userId,
+    role,
+    balance: released,
+    escrowHeld,
+    released,
+  }
 }
 
 function readState(): MarketplaceState {
@@ -245,6 +200,7 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
   return {
     campaigns: state.campaigns.map((campaign) => ({
       ...campaign,
+      brandUserId: campaign.brandUserId,
       brand: campaign.brand ?? campaign.title.split(" ").slice(0, 2).join(" "),
       applications: campaign.applications ?? 0,
       accepted: campaign.accepted ?? 0,
@@ -253,6 +209,7 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
     })),
     applications: state.applications.map((application) => ({
       ...application,
+      creatorUserId: application.creatorUserId,
       match: application.match ?? 90,
       status: application.status ?? "PENDING",
     })),
@@ -261,14 +218,23 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
 
       return {
         ...collab,
+        brandUserId: collab.brandUserId ?? campaign?.brandUserId,
+        creatorUserId: collab.creatorUserId,
         campaignId: collab.campaignId ?? campaign?.id ?? collab.id,
         brand: collab.brand ?? campaign?.brand ?? "Brand",
-        creator: collab.campaignId === 1 && collab.creator === "Sujata KC" ? "Aarati Rai" : collab.creator,
+        creator: collab.creator,
         payout: collab.payout ?? Math.min(campaign?.budget ?? 45000, 45000),
         submission: collab.submission,
       }
     }),
-    messages: state.messages ?? initialState.messages,
+    messages: state.messages ?? [],
+    wallets: (state.wallets ?? []).map((wallet) => ({
+      ...wallet,
+      balance: wallet.balance ?? 0,
+      escrowHeld: wallet.escrowHeld ?? 0,
+      released: wallet.released ?? 0,
+    })),
+    ledger: state.ledger ?? [],
     discoveryDecisions: state.discoveryDecisions ?? [],
   }
 }
@@ -344,10 +310,23 @@ export function useMarketplaceStore() {
 
   return {
     ...state,
+    getWallet(userId: string | undefined, role: MarketplaceWallet["role"]) {
+      return deriveWallet(state, userId, role) ?? defaultWallet(userId, role)
+    },
     createCampaign(campaign: Omit<MarketplaceCampaign, "id" | "brand"> & { brand?: string }) {
+      const session = readMockSession()
       commit((current) => ({
         ...current,
-        campaigns: [{ ...campaign, id: Date.now(), brand: campaign.brand ?? "Himal Glow" }, ...current.campaigns],
+        wallets: ensureWallet(current.wallets, session?.userId, "brand"),
+        campaigns: [
+          {
+            ...campaign,
+            id: Date.now(),
+            brandUserId: session?.userId,
+            brand: campaign.brand ?? session?.username ?? "Your brand",
+          },
+          ...current.campaigns,
+        ],
       }))
     },
     publishCampaign(id: number) {
@@ -355,14 +334,18 @@ export function useMarketplaceStore() {
         ...current,
         campaigns: current.campaigns.map((campaign) =>
           campaign.id === id
-            ? { ...campaign, status: "OPEN", applications: Math.max(campaign.applications, 3), reach: Math.max(campaign.reach, 22000) }
+            ? { ...campaign, status: "OPEN" }
             : campaign,
         ),
       }))
     },
     applyToCampaign(campaignId: number, creator: CreatorProfile) {
+      const session = readMockSession()
       commit((current) => {
-        const alreadyApplied = current.applications.some((application) => application.campaignId === campaignId && application.handle === creator.handle)
+        const alreadyApplied = current.applications.some((application) =>
+          application.campaignId === campaignId &&
+          (application.creatorUserId ? application.creatorUserId === session?.userId : application.handle === creator.handle),
+        )
         if (alreadyApplied) return current
 
         return {
@@ -373,6 +356,7 @@ export function useMarketplaceStore() {
           applications: [
             {
               id: Date.now(),
+              creatorUserId: session?.userId,
               creator: creator.creator,
               handle: creator.handle,
               country: creator.country,
@@ -388,8 +372,12 @@ export function useMarketplaceStore() {
       })
     },
     withdrawApplication(campaignId: number, handle: string) {
+      const session = readMockSession()
       commit((current) => {
-        const application = current.applications.find((item) => item.campaignId === campaignId && item.handle === handle)
+        const application = current.applications.find((item) =>
+          item.campaignId === campaignId &&
+          (item.creatorUserId ? item.creatorUserId === session?.userId : item.handle === handle),
+        )
 
         return {
           ...current,
@@ -398,7 +386,9 @@ export function useMarketplaceStore() {
                 campaign.id === campaignId ? { ...campaign, applications: Math.max(0, campaign.applications - 1) } : campaign,
               )
             : current.campaigns,
-          applications: current.applications.filter((item) => !(item.campaignId === campaignId && item.handle === handle)),
+          applications: current.applications.filter((item) =>
+            !(item.campaignId === campaignId && (item.creatorUserId ? item.creatorUserId === session?.userId : item.handle === handle)),
+          ),
         }
       })
     },
@@ -408,18 +398,25 @@ export function useMarketplaceStore() {
         const campaign = current.campaigns.find((item) => item.id === application?.campaignId)
         const wasAccepted = application?.status === "ACCEPTED"
         const isAccepted = status === "ACCEPTED"
+        const acceptedDelta = isAccepted && !wasAccepted ? 1 : !isAccepted && wasAccepted ? -1 : 0
 
         return {
           ...current,
-          applications: current.applications.map((item) => (item.id === id ? { ...item, status } : item)),
+          applications: current.applications.map((item) => {
+            if (item.id === id) return { ...item, status }
+            if (isAccepted && item.campaignId === application?.campaignId) return { ...item, status: "REJECTED" }
+            return item
+          }),
           campaigns: current.campaigns.map((item) =>
-            item.id === application?.campaignId ? { ...item, accepted: Math.max(0, item.accepted + (isAccepted && !wasAccepted ? 1 : 0)) } : item,
+            item.id === application?.campaignId ? { ...item, accepted: isAccepted ? 1 : Math.max(0, item.accepted + acceptedDelta) } : item,
           ),
           collaborations:
-            application && campaign && isAccepted && !current.collaborations.some((item) => item.campaignId === campaign.id && item.creator === application.creator)
+            application && campaign && isAccepted
               ? [
                   {
                     id: Date.now(),
+                    brandUserId: campaign.brandUserId,
+                    creatorUserId: application.creatorUserId,
                     campaign: campaign.title,
                     campaignId: campaign.id,
                     brand: campaign.brand,
@@ -429,20 +426,57 @@ export function useMarketplaceStore() {
                     deliverable: "Escrow required before chat unlocks",
                     payout: Math.min(campaign.budget, Math.max(15000, Math.round(campaign.budget * 0.38))),
                   },
-                  ...current.collaborations,
+                  ...current.collaborations.filter((item) => item.campaignId !== campaign.id),
                 ]
-              : current.collaborations,
+              : current.collaborations.filter((item) => item.campaignId !== application?.campaignId || item.creator !== application?.creator),
           messages: current.messages,
         }
       })
     },
     depositEscrow(id: number) {
-      commit((current) => ({
-        ...current,
-        collaborations: current.collaborations.map((collab) =>
-          collab.id === id ? { ...collab, state: "IN_PROGRESS", escrow: "HELD", deliverable: "Chat unlocked. Waiting for first deliverable." } : collab,
-        ),
-      }))
+      const session = readMockSession()
+      commit((current) => {
+        const collaboration = current.collaborations.find((collab) => collab.id === id)
+        if (!collaboration || collaboration.escrow !== "PENDING") return current
+
+        const campaign = current.campaigns.find((item) => item.id === collaboration.campaignId)
+        const brandUserId = collaboration.brandUserId ?? campaign?.brandUserId ?? session?.userId
+        const wallets = ensureWallet(current.wallets, brandUserId, "brand")
+        const brandWallet = wallets.find((wallet) => wallet.userId === brandUserId && wallet.role === "brand")
+
+        if (!brandWallet || brandWallet.balance < collaboration.payout) {
+          return {
+            ...current,
+            wallets,
+            collaborations: current.collaborations.map((collab) =>
+              collab.id === id ? { ...collab, deliverable: "Brand wallet balance is too low to deposit escrow." } : collab,
+            ),
+          }
+        }
+
+        return {
+          ...current,
+          wallets: wallets.map((wallet) =>
+            wallet.userId === brandUserId && wallet.role === "brand"
+              ? { ...wallet, balance: wallet.balance - collaboration.payout, escrowHeld: wallet.escrowHeld + collaboration.payout }
+              : wallet,
+          ),
+          ledger: [
+            ...current.ledger,
+            {
+              id: Date.now(),
+              collaborationId: id,
+              fromUserId: brandUserId,
+              type: "ESCROW_DEPOSIT",
+              amount: collaboration.payout,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          collaborations: current.collaborations.map((collab) =>
+            collab.id === id ? { ...collab, brandUserId, state: "IN_PROGRESS", escrow: "HELD", deliverable: "Chat unlocked. Waiting for first deliverable." } : collab,
+          ),
+        }
+      })
     },
     markSubmitted(id: number, submission?: Omit<DeliverableSubmission, "submittedAt">) {
       commit((current) => ({
@@ -453,37 +487,60 @@ export function useMarketplaceStore() {
                 ...collab,
                 state: "SUBMITTED",
                 deliverable: "Video deliverable submitted. Waiting for brand review.",
-                submission: submission
-                  ? {
-                      ...submission,
-                      submittedAt: new Date().toISOString(),
-                    }
-                  : collab.submission ?? {
-                      videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                      postUrl: "https://www.instagram.com/reel/demo",
-                      caption: "Campaign draft video submitted for brand review.",
-                      notes: "Demo submission created from brand-side simulation.",
-                      aspectRatio: "9:16",
-                      duration: "30s",
-                      submittedAt: new Date().toISOString(),
-                      checklist: {
-                        briefMatched: true,
-                        usageRights: true,
-                        noCopyrightMusic: true,
-                      },
-                    },
+                submission: submission ? { ...submission, submittedAt: new Date().toISOString() } : collab.submission,
               }
             : collab,
         ),
       }))
     },
     approveDeliverable(id: number) {
-      commit((current) => ({
-        ...current,
-        collaborations: current.collaborations.map((collab) =>
-          collab.id === id ? { ...collab, state: "APPROVED", escrow: "RELEASED", deliverable: "Approved. Payout queued." } : collab,
-        ),
-      }))
+      const session = readMockSession()
+      commit((current) => {
+        const collaboration = current.collaborations.find((collab) => collab.id === id)
+        if (!collaboration || collaboration.escrow === "RELEASED") return current
+
+        const campaign = current.campaigns.find((item) => item.id === collaboration.campaignId)
+        const acceptedApplication = current.applications.find((application) => application.campaignId === collaboration.campaignId && application.status === "ACCEPTED")
+        const brandUserId = collaboration.brandUserId ?? campaign?.brandUserId ?? session?.userId
+        const creatorUserId = collaboration.creatorUserId ?? acceptedApplication?.creatorUserId
+        let wallets = current.wallets
+        if (brandUserId && !wallets.some((wallet) => wallet.userId === brandUserId && wallet.role === "brand")) {
+          const brandWallet = deriveWallet(current, brandUserId, "brand")
+          if (brandWallet) wallets = [...wallets, brandWallet]
+        }
+        if (creatorUserId && !wallets.some((wallet) => wallet.userId === creatorUserId && wallet.role === "creator")) {
+          const creatorWallet = deriveWallet(current, creatorUserId, "creator")
+          if (creatorWallet) wallets = [...wallets, creatorWallet]
+        }
+
+        return {
+          ...current,
+          wallets: wallets.map((wallet) => {
+            if (wallet.userId === brandUserId && wallet.role === "brand") {
+              return { ...wallet, escrowHeld: Math.max(0, wallet.escrowHeld - collaboration.payout), released: wallet.released + collaboration.payout }
+            }
+            if (wallet.userId === creatorUserId && wallet.role === "creator") {
+              return { ...wallet, balance: wallet.balance + collaboration.payout, released: wallet.released + collaboration.payout }
+            }
+            return wallet
+          }),
+          ledger: [
+            ...current.ledger,
+            {
+              id: Date.now(),
+              collaborationId: id,
+              fromUserId: brandUserId,
+              toUserId: creatorUserId,
+              type: "PAYOUT_RELEASE",
+              amount: collaboration.payout,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          collaborations: current.collaborations.map((collab) =>
+            collab.id === id ? { ...collab, brandUserId, creatorUserId, state: "APPROVED", escrow: "RELEASED", deliverable: "Approved. Payout released to creator wallet." } : collab,
+          ),
+        }
+      })
     },
     sendMessage(roomId: number, message: Omit<MarketplaceMessage, "id" | "roomId" | "createdAt">) {
       commit((current) => ({

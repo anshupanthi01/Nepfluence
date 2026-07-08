@@ -2,6 +2,7 @@
 
 import { ClipboardList, Megaphone, ShieldCheck, UsersRound } from "lucide-react"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
+import { apiClient } from "@/lib/api-client"
 import {
   MarketplaceCampaign as Campaign,
   ApplicationStatus,
@@ -23,9 +24,41 @@ import {
 import { CampaignFormModal, LifecycleModal, SupportPanel } from "./BrandDashboardModals"
 import { BrandDashboardHome } from "./BrandDashboardHome"
 import { BrandDashboardShell } from "./BrandDashboardShell"
-import { type Activity, type Section, creators, emptyCampaignForm } from "./brand-dashboard.shared"
+import { type Activity, type Creator, type Section, emptyCampaignForm } from "./brand-dashboard.shared"
 
 const startSectionKey = "nepfluence-brand-start-section"
+
+type CreatorDirectoryProfile = {
+  id: number
+  user_id: number
+  full_name: string
+  handle: string
+  country: "NP" | "IN"
+  niche: string
+  followers: string
+  rating: string
+  image?: string | null
+}
+
+const creatorImages = [
+  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=320&q=80",
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80",
+  "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=320&q=80",
+  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=320&q=80",
+  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=320&q=80",
+]
+
+function directoryProfileToCreator(profile: CreatorDirectoryProfile, index: number): Creator {
+  return {
+    name: profile.full_name,
+    handle: profile.handle,
+    country: profile.country,
+    niche: profile.niche,
+    followers: profile.followers || "0",
+    rating: profile.rating || "New",
+    image: profile.image && profile.image !== "kei xaina" ? profile.image : creatorImages[index % creatorImages.length],
+  }
+}
 
 function titleFromEmail(email?: string) {
   const base = email?.split("@")[0] || "Brand"
@@ -49,34 +82,66 @@ export default function BrandDashboardOverview() {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [creatorFilter, setCreatorFilter] = useState<"ALL" | "NP" | "IN">("ALL")
   const [creatorSearch, setCreatorSearch] = useState("")
+  const [directoryCreators, setDirectoryCreators] = useState<Creator[]>([])
   const [brandMessage, setBrandMessage] = useState("")
   const [selectedRoomId, setSelectedRoomId] = useState(1)
-  const [selectedCreator, setSelectedCreator] = useState(creators[0])
-  const [discoveryDecisions, setDiscoveryDecisions] = useState<CreatorDiscoveryDecision[]>(marketplace.discoveryDecisions)
+  const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null)
   const [form, setForm] = useState(emptyCampaignForm)
-  const discoveryDirtyRef = useRef(false)
-  const campaigns = marketplace.campaigns
-  const applications = marketplace.applications
-  const collaborations = marketplace.collaborations
-  const [activities, setActivities] = useState<Activity[]>([
-    { id: 1, message: "Discover creators and build your first shortlist.", tone: "blue" },
-    { id: 2, message: "Create a campaign brief when your brand profile is ready.", tone: "green" },
-    { id: 3, message: "Escrow, messages, and deliverables unlock after a creator is accepted.", tone: "amber" },
-  ])
+  const campaigns = useMemo(
+    () =>
+      marketplace.campaigns.filter((campaign) =>
+        campaign.brandUserId ? campaign.brandUserId === session?.userId : campaign.brand === currentBrandName,
+      ),
+    [currentBrandName, marketplace.campaigns, session?.userId],
+  )
+  const ownedCampaignIds = useMemo(() => new Set(campaigns.map((campaign) => campaign.id)), [campaigns])
+  const applications = useMemo(
+    () => marketplace.applications.filter((application) => ownedCampaignIds.has(application.campaignId)),
+    [marketplace.applications, ownedCampaignIds],
+  )
+  const collaborations = useMemo(
+    () =>
+      marketplace.collaborations.filter((collab) =>
+        collab.brandUserId ? collab.brandUserId === session?.userId : ownedCampaignIds.has(collab.campaignId),
+      ),
+    [marketplace.collaborations, ownedCampaignIds, session?.userId],
+  )
+  const activeRoomId = collaborations.some((collab) => collab.id === selectedRoomId) ? selectedRoomId : collaborations[0]?.id
+  const [activities, setActivities] = useState<Activity[]>([])
 
   useEffect(() => {
     const startSection = window.localStorage.getItem(startSectionKey) as Section | null
     if (startSection === "Discover Creators") {
-      setActiveSection(startSection)
       window.localStorage.removeItem(startSectionKey)
     }
   }, [])
 
   useEffect(() => {
-    if (!discoveryDirtyRef.current || marketplace.discoveryDecisions.length > 0) {
-      setDiscoveryDecisions(marketplace.discoveryDecisions)
+    let cancelled = false
+
+    async function loadCreatorDirectory() {
+      try {
+        const profiles = await apiClient<CreatorDirectoryProfile[]>("/influencer-profile/directory")
+        if (!cancelled) {
+          const nextCreators = profiles.map(directoryProfileToCreator)
+          setDirectoryCreators(nextCreators)
+          setSelectedCreator((current) => current ?? nextCreators[0] ?? null)
+        }
+      } catch {
+        if (!cancelled) {
+          setDirectoryCreators([])
+          setSelectedCreator(null)
+        }
+      }
     }
-  }, [marketplace.discoveryDecisions])
+
+    void loadCreatorDirectory()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
 
   const idCounter = useRef(0)
 
@@ -99,14 +164,16 @@ export default function BrandDashboardOverview() {
     ]
   }, [campaigns, collaborations])
 
-  const filteredCreators = (creatorFilter === "ALL" ? creators : creators.filter((creator) => creator.country === creatorFilter)).filter((creator) => {
+  const filteredCreators = (creatorFilter === "ALL" ? directoryCreators : directoryCreators.filter((creator) => creator.country === creatorFilter)).filter((creator) => {
     const query = creatorSearch.trim().toLowerCase()
     if (!query) return true
 
     return [creator.name, creator.handle, creator.niche, creator.country].some((value) => value.toLowerCase().includes(query))
   })
   const pendingApplications = applications.filter((application) => application.status === "PENDING")
-  const paymentTotal = collaborations.filter((collab) => collab.escrow === "HELD").length * 45000
+  const brandWallet = marketplace.getWallet(session?.userId, "brand")
+  const brandLedger = marketplace.ledger.filter((entry) => collaborations.some((collab) => collab.id === entry.collaborationId))
+  const paymentTotal = collaborations.filter((collab) => collab.escrow === "HELD").reduce((sum, collab) => sum + collab.payout, 0)
 
   function addActivity(message: string, tone: Activity["tone"] = "blue") {
     setActivities((current) => [{ id: nextUiId(), message, tone }, ...current].slice(0, 6))
@@ -116,6 +183,7 @@ export default function BrandDashboardOverview() {
     event.preventDefault()
     const nextCampaign: Campaign = {
       id: nextUiId(),
+      brandUserId: session?.userId,
       brand: currentBrandName,
       title: form.title.trim() || "Untitled campaign",
       niche: form.niche,
@@ -156,17 +224,7 @@ export default function BrandDashboardOverview() {
     }
   }
 
-  function decideCreatorDiscovery(creator: (typeof creators)[number], status: CreatorDiscoveryDecision["status"]) {
-    discoveryDirtyRef.current = true
-    setDiscoveryDecisions((current) => [
-      {
-        creator: creator.name,
-        handle: creator.handle,
-        status,
-        decidedAt: new Date().toISOString(),
-      },
-      ...current.filter((decision) => decision.handle !== creator.handle),
-    ])
+  function decideCreatorDiscovery(creator: Creator, status: CreatorDiscoveryDecision["status"]) {
     marketplace.decideCreatorDiscovery({ creator: creator.name, handle: creator.handle }, status)
     addActivity(`${creator.name} ${status === "SELECTED" ? "moved to selected creators" : "moved to rejected creators"}.`, status === "SELECTED" ? "blue" : "red")
   }
@@ -190,10 +248,11 @@ export default function BrandDashboardOverview() {
     const message = brandMessage.trim()
     if (!message) return
 
-    const room = collaborations.find((collab) => collab.id === selectedRoomId)
-    marketplace.sendMessage(selectedRoomId, {
+    const room = collaborations.find((collab) => collab.id === activeRoomId)
+    if (!room) return
+    marketplace.sendMessage(room.id, {
       sender: "brand",
-      senderName: room?.brand ?? "Brand",
+      senderName: room.brand,
       body: message,
     })
     setBrandMessage("")
@@ -237,7 +296,7 @@ export default function BrandDashboardOverview() {
         <MessagesPanel
           collaborations={collaborations}
           messages={marketplace.messages}
-          selectedRoomId={selectedRoomId}
+          selectedRoomId={activeRoomId ?? selectedRoomId}
           message={brandMessage}
           onMessageChange={setBrandMessage}
           onRoomChange={setSelectedRoomId}
@@ -248,7 +307,7 @@ export default function BrandDashboardOverview() {
       {activeSection === "Discover Creators" && (
         <DiscoverPanel
           creators={filteredCreators}
-          discoveryDecisions={discoveryDecisions}
+          discoveryDecisions={marketplace.discoveryDecisions}
           filter={creatorFilter}
           search={creatorSearch}
           selectedCreator={selectedCreator}
@@ -260,9 +319,9 @@ export default function BrandDashboardOverview() {
         />
       )}
 
-      {activeSection === "Payments" && <PaymentsPanel collaborations={collaborations} paymentTotal={paymentTotal} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
+      {activeSection === "Payments" && <PaymentsPanel collaborations={collaborations} paymentTotal={paymentTotal} wallet={brandWallet} ledger={brandLedger} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
       {activeSection === "Brand Profile" && <BrandProfilePanel campaigns={campaigns} collaborations={collaborations} />}
-      {activeSection === "Trust & Reports" && <TrustPanel />}
+      {activeSection === "Trust & Reports" && <TrustPanel collaborations={collaborations} />}
 
       {notificationOpen && <NotificationPanel activities={activities} onClose={() => setNotificationOpen(false)} />}
       {campaignModalOpen && <CampaignFormModal form={form} onChange={setForm} onClose={() => setCampaignModalOpen(false)} onSubmit={submitCampaign} />}

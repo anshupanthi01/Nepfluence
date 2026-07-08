@@ -1,14 +1,17 @@
 "use client"
 
 import { AlertTriangle, BadgeCheck, ShieldCheck } from "lucide-react"
+import type { MarketplaceCollaboration as Collaboration } from "@/features/shared/marketplaceStore"
 import { MetricCard } from "./MetricCard"
 
-export function TrustPanel() {
+export function TrustPanel({ collaborations }: { collaborations: Collaboration[] }) {
+  const protectedCollabs = collaborations.filter((item) => item.escrow === "HELD" || item.escrow === "RELEASED").length
+
   return (
     <section className="grid gap-4 lg:grid-cols-3">
-      <MetricCard icon={BadgeCheck} label="Verified creators" value="4/5" detail="Manual profile review" />
+      <MetricCard icon={BadgeCheck} label="Verified creators" value="0" detail="No accepted creators yet" />
       <MetricCard icon={AlertTriangle} label="Open disputes" value="0" detail="Admin queue clear" />
-      <MetricCard icon={ShieldCheck} label="Escrow protected" value="100%" detail="Brand to creator only" />
+      <MetricCard icon={ShieldCheck} label="Escrow protected" value={protectedCollabs.toString()} detail="Brand to creator only" />
       <div className="rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-sm lg:col-span-3">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Trust rules</p>
         <h2 className="mt-1 text-lg font-black text-[#1f252b]">Marketplace guardrails</h2>

@@ -14,10 +14,29 @@ from src.influencer_profile.schemas import (
     InfluencerProfileUpdate,
     InfluencerProfilePublic,
     InfluencerProfileWithSocialsAndStatsPublic,
+    CreatorDirectoryPublic,
 )
 from src.integrations.youtube.service import get_channel_stats
 
 router = APIRouter(prefix="/influencer-profile", tags=["influencer_profile"])
+
+
+def _country_code(country: str | None) -> str:
+    value = (country or "").strip().lower()
+    if value in {"india", "in"}:
+        return "IN"
+    return "NP"
+
+
+def _profile_handle(profile) -> str:
+    social_accounts = profile.social_accounts or []
+    for account in social_accounts:
+      if account.youtube_handle:
+          return account.youtube_handle if account.youtube_handle.startswith("@") else f"@{account.youtube_handle}"
+
+    username = getattr(profile.user, "username", None) or profile.full_name
+    handle = "".join(character for character in username.lower() if character.isalnum())
+    return f"@{handle or 'creator'}"
 
 
 def _require_influencer_user(current_user: CurrentUser) -> None:
@@ -26,6 +45,51 @@ def _require_influencer_user(current_user: CurrentUser) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only influencer users can manage an influencer profile",
         )
+
+
+@router.get("/directory", response_model=list[CreatorDirectoryPublic])
+async def list_creator_directory(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if current_user.role != UserRole.BRAND:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only brand users can browse creator directory",
+        )
+
+    profiles = await crud.list_available(db)
+    creators = []
+    for profile in profiles:
+        social_accounts = profile.social_accounts or []
+        followers = "0"
+        for account in social_accounts:
+            if account.subscribers_count:
+                followers = f"{account.subscribers_count:,}"
+                break
+
+        platforms = [
+            getattr(account.platform, "value", account.platform)
+            for account in social_accounts
+        ]
+
+        creators.append(
+            {
+                "id": profile.id,
+                "user_id": profile.user_id,
+                "full_name": profile.full_name,
+                "handle": _profile_handle(profile),
+                "country": _country_code(getattr(profile.user, "country", None)),
+                "niche": getattr(profile.niche, "value", profile.niche).replace("_", " ").title(),
+                "followers": followers,
+                "rating": "Live" if social_accounts else "New",
+                "bio": profile.bio,
+                "image": getattr(profile.user, "image_path", None),
+                "platforms": platforms,
+            }
+        )
+
+    return creators
 
 
 @router.get("/me", response_model=InfluencerProfileWithSocialsAndStatsPublic)

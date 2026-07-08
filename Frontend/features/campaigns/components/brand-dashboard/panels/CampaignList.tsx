@@ -132,6 +132,18 @@ export function CampaignList({
             </div>
           </article>
         ))}
+        {campaigns.length === 0 && (
+          <div className="rounded-[22px] border border-dashed border-[#ded8cf] bg-white p-8 text-center">
+            <p className="text-sm font-black text-[#1f252b]">No campaigns yet</p>
+            <p className="mt-2 text-xs font-semibold text-[#69716b]">Create your first campaign to start collecting applications.</p>
+            {onCreate && (
+              <Button className="mt-4 h-9 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#303840]" type="button" onClick={onCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                New campaign
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </section>
   )

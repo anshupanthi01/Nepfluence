@@ -6,11 +6,9 @@ import { type Collaboration, statusClass } from "../creator-dashboard.shared"
 export function CollaborationsPanel({
   collaborations,
   onSubmit,
-  onMarkPaid,
 }: {
   collaborations: Collaboration[]
   onSubmit: (id: number) => void
-  onMarkPaid: (id: number) => void
 }) {
   return (
     <section className="overflow-hidden rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_12px_34px_rgba(31,37,43,0.06)]">
@@ -46,9 +44,9 @@ export function CollaborationsPanel({
                 </button>
               )}
               {collab.state === "SUBMITTED" && (
-                <button className="h-9 rounded-full bg-[#16864f] px-4 text-xs font-black text-white" type="button" onClick={() => onMarkPaid(collab.id)}>
-                  Simulate payout
-                </button>
+                <span className="inline-flex h-9 items-center rounded-full bg-[#eef8f2] px-4 text-xs font-black text-[#16864f]">
+                  Waiting for brand approval
+                </span>
               )}
               {collab.escrow === "PENDING" && (
                 <span className="inline-flex h-9 items-center rounded-full bg-[#fff5df] px-4 text-xs font-black text-[#9b6500]">Escrow pending</span>
@@ -56,6 +54,12 @@ export function CollaborationsPanel({
             </div>
           </article>
         ))}
+        {collaborations.length === 0 && (
+          <div className="rounded-[22px] border border-dashed border-[#ded8cf] bg-white p-8 text-center">
+            <p className="text-sm font-black text-[#1f252b]">No collaborations yet</p>
+            <p className="mt-2 text-xs font-semibold text-[#69716b]">Accepted campaign workrooms will appear here.</p>
+          </div>
+        )}
       </div>
     </section>
   )

@@ -21,6 +21,11 @@ export function NotificationPanel({ activities, onClose }: { activities: Activit
             {activity.message}
           </p>
         ))}
+        {activities.length === 0 && (
+          <p className="rounded-[18px] bg-white p-3 text-sm font-semibold leading-6 text-[#505852] ring-1 ring-[#e8e2d9]">
+            No workspace updates yet.
+          </p>
+        )}
       </div>
     </section>
   )

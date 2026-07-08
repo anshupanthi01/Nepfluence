@@ -40,6 +40,12 @@ export function MessagesPanel({
               </span>
             </button>
           ))}
+          {collaborations.length === 0 && (
+            <div className="rounded-[18px] border border-dashed border-[#ded8cf] bg-white p-4 text-center">
+              <p className="text-sm font-black text-[#1f252b]">No rooms yet</p>
+              <p className="mt-2 text-xs font-semibold text-[#69716b]">Collaboration messages appear after a creator is accepted.</p>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -85,7 +91,7 @@ export function MessagesPanel({
               if (event.key === "Enter") onSend()
             }}
           />
-          <button className="grid size-11 place-items-center rounded-full bg-[#1f252b] text-white transition hover:bg-[#303840] disabled:opacity-50" type="button" aria-label="Send message" disabled={!message.trim()} onClick={onSend}>
+          <button className="grid size-11 place-items-center rounded-full bg-[#1f252b] text-white transition hover:bg-[#303840] disabled:opacity-50" type="button" aria-label="Send message" disabled={!activeRoom || !message.trim()} onClick={onSend}>
             <Send className="size-4" aria-hidden="true" />
           </button>
         </div>

@@ -83,11 +83,7 @@ export default function CreatorDashboardOverview() {
       { label: "Accounts", value: readConnectedPlatforms(session?.userId).length.toString(), detail: "Connected" },
     ],
   }))
-  const [activities, setActivities] = useState<Activity[]>([
-    { id: 1, message: "Trail Tea escrow is held. Chat and deliverables are unlocked.", tone: "green" },
-    { id: 2, message: "8848 Momo House application is waiting on brand review.", tone: "amber" },
-    { id: 3, message: "Complete your creator profile to improve campaign matches.", tone: "blue" },
-  ])
+  const [activities, setActivities] = useState<Activity[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -138,20 +134,30 @@ export default function CreatorDashboardOverview() {
     }
   }, [])
 
+  const creatorApplications = marketplace.applications.filter((application) =>
+    application.creatorUserId ? application.creatorUserId === session?.userId : application.handle === creatorProfile.handle,
+  )
+  const creatorApplicationCampaignIds = useMemo(() => new Set(creatorApplications.map((application) => application.campaignId)), [creatorApplications])
+
   const campaigns: CreatorCampaign[] = marketplace.campaigns
-    .filter((campaign) => campaign.status === "OPEN" || marketplace.applications.some((application) => application.campaignId === campaign.id && application.handle === creatorProfile.handle))
+    .filter((campaign) => campaign.status === "OPEN" || creatorApplicationCampaignIds.has(campaign.id))
     .map((campaign) => {
-      const application = marketplace.applications.find((item) => item.campaignId === campaign.id && item.handle === creatorProfile.handle)
+      const application = creatorApplications.find((item) => item.campaignId === campaign.id)
 
       return {
         ...campaign,
         campaignStatus: campaign.status,
         status: application?.status ?? "NOT_APPLIED",
-        match: application?.match ?? (campaign.niche.toLowerCase().includes("beauty") ? 96 : campaign.country === "NP" ? 89 : 82),
+        match: application?.match ?? (creatorProfile.niche !== "Profile not set" && campaign.niche.toLowerCase() === creatorProfile.niche.toLowerCase() ? 80 : 0),
       }
     })
 
-  const collaborations = marketplace.collaborations.filter((collab) => collab.creator === creatorProfile.creator)
+  const collaborations = marketplace.collaborations.filter((collab) =>
+    collab.creatorUserId ? collab.creatorUserId === session?.userId : collab.creator === creatorProfile.creator,
+  )
+  const activeRoomId = collaborations.some((collab) => collab.id === selectedRoomId) ? selectedRoomId : collaborations[0]?.id
+  const creatorWallet = marketplace.getWallet(session?.userId, "creator")
+  const creatorLedger = marketplace.ledger.filter((entry) => collaborations.some((collab) => collab.id === entry.collaborationId))
 
   const stats = useMemo(() => {
     const pendingApplications = campaigns.filter((campaign) => campaign.status === "PENDING").length
@@ -219,11 +225,6 @@ export default function CreatorDashboardOverview() {
     setSubmissionForm(emptySubmissionForm)
   }
 
-  function markPaid(id: number) {
-    marketplace.approveDeliverable(id)
-    addActivity("Payout released to creator wallet.", "green")
-  }
-
   function goTo(section: Section) {
     setActiveSection(section)
     setMobileMenuOpen(false)
@@ -232,8 +233,10 @@ export default function CreatorDashboardOverview() {
   function sendCreatorMessage() {
     const message = creatorMessage.trim()
     if (!message) return
+    const room = collaborations.find((collab) => collab.id === activeRoomId)
+    if (!room) return
 
-    marketplace.sendMessage(selectedRoomId, {
+    marketplace.sendMessage(room.id, {
       sender: "creator",
       senderName: creatorProfile.creator,
       body: message,
@@ -263,7 +266,6 @@ export default function CreatorDashboardOverview() {
           onApply={applyToCampaign}
           onBrowseCampaigns={() => setActiveSection("Find Campaigns")}
           onEditProfile={() => setActiveSection("Profile")}
-          onMarkPaid={markPaid}
           onSearch={setCampaignSearch}
           onSubmit={submitDeliverable}
           onWithdraw={withdrawApplication}
@@ -272,19 +274,19 @@ export default function CreatorDashboardOverview() {
 
       {activeSection === "Find Campaigns" && <CampaignsPanel campaigns={filteredCampaigns} search={campaignSearch} onSearch={setCampaignSearch} onApply={applyToCampaign} onWithdraw={withdrawApplication} />}
       {activeSection === "Applications" && <ApplicationsPanel campaigns={campaigns} onWithdraw={withdrawApplication} />}
-      {activeSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onSubmit={submitDeliverable} onMarkPaid={markPaid} />}
+      {activeSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onSubmit={submitDeliverable} />}
       {activeSection === "Messages" && (
         <MessagesPanel
           collaborations={collaborations}
           messages={marketplace.messages}
-          selectedRoomId={selectedRoomId}
+          selectedRoomId={activeRoomId ?? selectedRoomId}
           message={creatorMessage}
           onMessageChange={setCreatorMessage}
           onRoomChange={setSelectedRoomId}
           onSend={sendCreatorMessage}
         />
       )}
-      {activeSection === "Payouts" && <PayoutsPanel collaborations={collaborations} onSubmit={submitDeliverable} onMarkPaid={markPaid} />}
+      {activeSection === "Payouts" && <PayoutsPanel collaborations={collaborations} wallet={creatorWallet} ledger={creatorLedger} onSubmit={submitDeliverable} />}
       {activeSection === "Profile" && <ProfilePanel creatorProfile={creatorProfile} onProfileChange={setCreatorProfile} />}
 
       {notificationOpen && <NotificationPanel activities={activities} onClose={() => setNotificationOpen(false)} />}

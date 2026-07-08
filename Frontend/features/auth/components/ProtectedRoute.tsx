@@ -1,36 +1,58 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { readMockSession } from "@/lib/auth"
-import type { UserRole } from "@/features/auth/types/auth.types"
+import type { AuthSession, UserRole } from "@/features/auth/types/auth.types"
 
 type ProtectedRouteProps = {
   allowedRoles: UserRole[]
   children: React.ReactNode
 }
 
+const sessionKey = "nepfluence-session"
+
 function defaultDashboard(role: UserRole) {
   return role === "creator" ? "/creator/dashboard" : "/dashboard"
 }
 
-function isSessionValid() {
-  const session = readMockSession()
+function subscribeToSession(callback: () => void) {
+  if (typeof window === "undefined") return () => {}
 
-  if (!session?.accessToken) return null
-  if (Date.parse(session.accessTokenExpiresAt) <= Date.now()) return null
+  window.addEventListener("storage", callback)
+  return () => window.removeEventListener("storage", callback)
+}
 
-  return session
+function readSessionSnapshot() {
+  if (typeof window === "undefined") return null
+  return window.localStorage.getItem(sessionKey)
+}
+
+function readServerSessionSnapshot() {
+  return null
+}
+
+function parseValidSession(snapshot: string | null) {
+  if (!snapshot) return null
+
+  try {
+    const session = JSON.parse(snapshot) as AuthSession
+    if (!session.accessToken) return null
+    if (Date.parse(session.accessTokenExpiresAt) <= Date.now()) return null
+
+    return session
+  } catch {
+    return null
+  }
 }
 
 export default function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isAllowed, setIsAllowed] = useState(false)
+  const sessionSnapshot = useSyncExternalStore(subscribeToSession, readSessionSnapshot, readServerSessionSnapshot)
+  const session = useMemo(() => parseValidSession(sessionSnapshot), [sessionSnapshot])
+  const isAllowed = Boolean(session && allowedRoles.includes(session.role))
 
   useEffect(() => {
-    const session = isSessionValid()
-
     if (!session) {
       const role = pathname.startsWith("/creator") ? "creator" : "brand"
       router.replace(`/login?role=${role}`)
@@ -39,11 +61,8 @@ export default function ProtectedRoute({ allowedRoles, children }: ProtectedRout
 
     if (!allowedRoles.includes(session.role)) {
       router.replace(defaultDashboard(session.role))
-      return
     }
-
-    setIsAllowed(true)
-  }, [allowedRoles, pathname, router])
+  }, [allowedRoles, pathname, router, session])
 
   if (!isAllowed) {
     return (

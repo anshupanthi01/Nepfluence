@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { ApplicationStatus, MarketplaceApplication as Application, MarketplaceCampaign as Campaign } from "@/features/shared/marketplaceStore"
 import { ActivityPanel, ApplicationQueue, CampaignList } from "./BrandDashboardPanels"
-import { type Activity, campaignImage, initialCampaigns } from "./brand-dashboard.shared"
+import { type Activity, campaignImage } from "./brand-dashboard.shared"
 
 type BrandDashboardHomeProps = {
   activities: Activity[]
@@ -54,11 +54,17 @@ export function BrandDashboardHome({
               </div>
             </div>
             <div className="overflow-hidden rounded-[20px] border border-[#e8e2d9] bg-white">
-              <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${campaignImage(campaigns[0] ?? initialCampaigns[0])})` }} />
+              {campaigns[0] ? (
+                <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${campaignImage(campaigns[0])})` }} />
+              ) : (
+                <div className="grid h-40 place-items-center bg-[#f0ece5] px-6 text-center">
+                  <p className="text-sm font-black text-[#505852]">No campaign created yet</p>
+                </div>
+              )}
               <div className="p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Featured live campaign</p>
-                <p className="mt-1 text-base font-black">{campaigns[0]?.title ?? "Himal Glow winter launch"}</p>
-                <p className="mt-1 text-xs font-semibold text-[#69716b]">{campaigns[0]?.applications ?? 18} applications in review</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a8175]">First campaign</p>
+                <p className="mt-1 text-base font-black">{campaigns[0]?.title ?? "Create your first campaign"}</p>
+                <p className="mt-1 text-xs font-semibold text-[#69716b]">{campaigns[0] ? `${campaigns[0].applications} applications in review` : "Applications will appear after publishing."}</p>
               </div>
             </div>
           </div>

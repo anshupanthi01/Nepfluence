@@ -237,7 +237,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
                         onChange={(event) => setSkipCompanyEmail(event.target.checked)}
                         type="checkbox"
                       />
-                      I don't have one
+                      I don&apos;t have one
                     </label>
                   </div>
                   <input
@@ -263,7 +263,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
                         onChange={(event) => setSkipCompanyWebsite(event.target.checked)}
                         type="checkbox"
                       />
-                      I don't have one
+                      I don&apos;t have one
                     </label>
                   </div>
                   <input
@@ -340,7 +340,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
           </button>
 
           <p className="mt-4 text-center text-sm font-medium text-[#69716b]">
-            {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
+            {isRegister ? "Already have an account?" : "Don&apos;t have an account?"}{" "}
             <Link className="font-black text-[#1f252b] hover:text-[#505852]" href={`/${alternateMode}?role=${role}`}>
               {isRegister ? "Login" : "Sign up free"}
             </Link>

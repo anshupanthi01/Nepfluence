@@ -70,6 +70,11 @@ export function NotificationPanel({ activities, onClose }: { activities: Activit
             {activity.message}
           </p>
         ))}
+        {activities.length === 0 && (
+          <p className="rounded-[8px] bg-[#f7f8fb] p-3 text-sm font-bold leading-6 text-[#606675]">
+            No updates yet.
+          </p>
+        )}
       </div>
     </section>
   )

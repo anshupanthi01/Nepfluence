@@ -108,7 +108,7 @@ export function DiscoverPanel({
   discoveryDecisions: CreatorDiscoveryDecision[]
   filter: "ALL" | "NP" | "IN"
   search: string
-  selectedCreator: Creator
+  selectedCreator: Creator | null
   onDiscoveryDecision: (creator: Creator, status: CreatorDiscoveryDecision["status"]) => void
   onFilter: (filter: "ALL" | "NP" | "IN") => void
   onSearch: (search: string) => void
@@ -146,7 +146,7 @@ export function DiscoverPanel({
     if (!platformMatches) return false
     if (view === "selected") return selectedHandles.includes(creator.handle)
     if (view === "rejected") return rejectedHandles.includes(creator.handle)
-    if (view === "lookalikes") return creator.niche === selectedCreator.niche && creator.handle !== selectedCreator.handle
+    if (view === "lookalikes") return selectedCreator ? creator.niche === selectedCreator.niche && creator.handle !== selectedCreator.handle : false
     return !selectedHandles.includes(creator.handle) && !rejectedHandles.includes(creator.handle)
   })
 
@@ -367,7 +367,7 @@ export function DiscoverPanel({
             const samples = creatorWorkSamples.length
               ? [0, 1, 2].map((offset) => creatorWorkSamples[(index + offset) % creatorWorkSamples.length])
               : []
-            const isSelected = selectedCreator.handle === creator.handle
+            const isSelected = selectedCreator?.handle === creator.handle
             const metrics = metricSets[index % metricSets.length]
             const awards = awardSets[index % awardSets.length]
             const isMoving = movingDecision?.handle === creator.handle
@@ -468,8 +468,8 @@ export function DiscoverPanel({
           })}
           {visibleCreators.length === 0 && (
             <div className="rounded-[24px] border border-dashed border-[#ded8cf] bg-[#fbfaf7] p-10 text-center">
-              <p className="text-lg font-black text-[#1f252b]">No creators in this section yet</p>
-              <p className="mt-2 text-sm font-semibold text-[#69716b]">Select or reject creators from Find creators to fill this view.</p>
+              <p className="text-lg font-black text-[#1f252b]">{view === "find" ? "No real creators available yet" : "No creators in this section yet"}</p>
+              <p className="mt-2 text-sm font-semibold text-[#69716b]">{view === "find" ? "Creator profiles will appear here after real creator accounts complete their profiles." : "Select or reject creators from Find creators to fill this view."}</p>
             </div>
           )}
         </div>
