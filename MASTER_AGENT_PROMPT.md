@@ -2,20 +2,32 @@
 
 You are one of three agents working on Nepfluence from separate computers. Before editing code, read these files in this exact order:
 
-1. `GAP_ANALYSIS_AUDIT.md`
-2. `DECISIONS_ADDENDUM.md`
-3. `CONTRACT.md`
-4. `TEAM_SPLIT_AND_GIT_WORKFLOW.md`
-5. Your assigned track prompt:
+1. `ROLE_ASSIGNMENTS.md`
+2. `GAP_ANALYSIS_AUDIT.md`
+3. `DECISIONS_ADDENDUM.md`
+4. `CONTRACT.md`
+5. `TEAM_SPLIT_AND_GIT_WORKFLOW.md`
+6. Your assigned track prompt:
    - Backend agent: `AGENT_PROMPT_backend.md`
    - Frontend brand agent: `AGENT_PROMPT_frontend_brand.md`
    - Frontend creator agent: `AGENT_PROMPT_frontend_creator.md`
+
+
+## Role Claiming
+
+Before touching project code, claim exactly one open role in `ROLE_ASSIGNMENTS.md`.
+
+- If your desired role is `OPEN`, mark it `CLAIMED`, fill in your owner details, then commit and push `ROLE_ASSIGNMENTS.md` first.
+- If your desired role is already `CLAIMED`, do not take that role. Choose another open role or ask the project owner.
+- Do not edit code until your role claim is pushed to `main`.
+- Do not work outside the role you claimed.
 
 ## Non-Negotiable Rules
 
 - Follow `DECISIONS_ADDENDUM.md` as final unless implementation evidence makes a decision impossible. If that happens, stop and flag it in `CONTRACT.md` instead of choosing a new direction alone.
 - Treat `CONTRACT.md` as the source of truth for frontend-backend shapes. If a field, route, or enum is still marked TBD, do not guess it.
 - Follow the ownership boundaries in `TEAM_SPLIT_AND_GIT_WORKFLOW.md`.
+- Follow `ROLE_ASSIGNMENTS.md`; one role can have only one active owner.
 - Do not edit another agent's owned files unless the human explicitly asks you to or the workflow document assigns you a shared sync-point task.
 - Rebase from `main` before starting work and again before pushing.
 - Keep commits scoped to your track and write clear commit messages.

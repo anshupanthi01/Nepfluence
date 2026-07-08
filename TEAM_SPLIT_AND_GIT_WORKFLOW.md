@@ -1,6 +1,11 @@
 # Nepfluence — Team Split & Git Workflow (3 parallel agents)
 
 Read this before anyone starts. It exists to stop three agents on three machines from blocking each other or conflicting on the same files.
+## Before choosing work
+
+Every agent must first open `ROLE_ASSIGNMENTS.md` and claim one `OPEN` role. The claim must be committed and pushed to `main` before code work starts.
+
+If a role is already marked `CLAIMED`, another agent must not take it. Pick a different open role or ask the project owner to release/reassign the claimed role.
 
 ## Who owns what
 
