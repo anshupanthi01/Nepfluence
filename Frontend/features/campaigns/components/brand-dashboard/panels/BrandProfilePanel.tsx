@@ -80,7 +80,7 @@ function initials(name: string) {
 export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Campaign[]; collaborations: Collaboration[] }) {
   const session = readMockSession()
   const defaultBrandName = session?.username || titleFromEmail(session?.email)
-  const liveCampaigns = campaigns.filter((campaign) => campaign.status === "OPEN").length
+  const liveCampaigns = campaigns.filter((campaign) => campaign.status === "PUBLISHED").length
   const totalSpend = collaborations.reduce((sum, collab) => sum + collab.payout, 0)
   const [profileId, setProfileId] = useState<number | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)

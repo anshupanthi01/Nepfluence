@@ -14,7 +14,7 @@ type BrandDashboardHomeProps = {
   pendingApplications: Application[]
   onCreateCampaign: () => void
   onDiscoverCreators: () => void
-  onManageCampaigns: () => void
+  onManageCampaign: (campaign: Campaign) => void
   onPublishCampaign: (id: number) => void
   onReviewApplication: (id: number, status: ApplicationStatus) => void
 }
@@ -26,7 +26,7 @@ export function BrandDashboardHome({
   pendingApplications,
   onCreateCampaign,
   onDiscoverCreators,
-  onManageCampaigns,
+  onManageCampaign,
   onPublishCampaign,
   onReviewApplication,
 }: BrandDashboardHomeProps) {
@@ -91,7 +91,7 @@ export function BrandDashboardHome({
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <CampaignList campaigns={campaigns.slice(0, 3)} onPublish={onPublishCampaign} onManage={onManageCampaigns} compact />
+        <CampaignList campaigns={campaigns.slice(0, 3)} onPublish={onPublishCampaign} onManage={onManageCampaign} compact />
         <ApplicationQueue applications={pendingApplications.slice(0, 3)} campaigns={campaigns} onReview={onReviewApplication} />
       </section>
     </div>

@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from "react"
 import { apiClient } from "@/lib/api-client"
 import { readMockSession } from "@/lib/auth"
 
-export type CampaignStatus = "DRAFT" | "OPEN" | "PAUSED" | "CLOSED" | "COMPLETED"
+export type CampaignStatus = "DRAFT" | "OPEN" | "PUBLISHED" | "PAUSED" | "CLOSED" | "COMPLETED"
 export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED"
 export type EscrowStatus = "NOT_REQUIRED" | "PENDING" | "HELD" | "RELEASED"
 export type CollaborationState = "ESCROW_PENDING" | "IN_PROGRESS" | "SUBMITTED" | "APPROVED"
@@ -67,15 +67,22 @@ export type MarketplaceCollaboration = {
   deliverable: string
   payout: number
   submission?: DeliverableSubmission
+  hiddenForBrandAt?: string
+  hiddenForCreatorAt?: string
 }
 
 export type MarketplaceMessage = {
   id: number
   roomId: number
+  campaignId?: number
+  brandUserId?: string
+  creatorUserId?: string
   sender: "brand" | "creator"
   senderName: string
   body: string
   createdAt: string
+  deletedForBrandAt?: string
+  deletedForCreatorAt?: string
 }
 
 export type MarketplaceWallet = {
@@ -122,7 +129,7 @@ type CreatorProfile = {
   match?: number
 }
 
-const storeKey = "nepfluence-marketplace-state-v3"
+const storeKey = "nepfluence-marketplace-state-v5"
 const storeEvent = "nepfluence-marketplace-updated"
 let cachedState: MarketplaceState | null = null
 let remoteSyncStarted = false
@@ -146,6 +153,39 @@ function defaultWallet(userId: string | undefined, role: MarketplaceWallet["role
     balance: role === "brand" ? 150000 : 0,
     escrowHeld: 0,
     released: 0,
+  }
+}
+
+function mergeById<T extends { id: number }>(base: T[] | undefined, override: T[] | undefined) {
+  const merged = new Map<number, T>()
+  ;(base ?? []).forEach((record) => merged.set(record.id, record))
+  ;(override ?? []).forEach((record) => merged.set(record.id, record))
+  return Array.from(merged.values())
+}
+
+function mergeWallets(base: MarketplaceWallet[] | undefined, override: MarketplaceWallet[] | undefined) {
+  const merged = new Map<string, MarketplaceWallet>()
+  ;(base ?? []).forEach((wallet) => merged.set(`${wallet.userId}:${wallet.role}`, wallet))
+  ;(override ?? []).forEach((wallet) => merged.set(`${wallet.userId}:${wallet.role}`, wallet))
+  return Array.from(merged.values())
+}
+
+function mergeDiscovery(base: CreatorDiscoveryDecision[] | undefined, override: CreatorDiscoveryDecision[] | undefined) {
+  const merged = new Map<string, CreatorDiscoveryDecision>()
+  ;(base ?? []).forEach((decision) => merged.set(decision.handle, decision))
+  ;(override ?? []).forEach((decision) => merged.set(decision.handle, decision))
+  return Array.from(merged.values())
+}
+
+function mergeMarketplaceStates(base: MarketplaceState, override: MarketplaceState): MarketplaceState {
+  return {
+    campaigns: mergeById(base.campaigns, override.campaigns),
+    applications: mergeById(base.applications, override.applications),
+    collaborations: mergeById(base.collaborations, override.collaborations),
+    messages: mergeById(base.messages, override.messages),
+    wallets: mergeWallets(base.wallets, override.wallets),
+    ledger: mergeById(base.ledger, override.ledger),
+    discoveryDecisions: mergeDiscovery(base.discoveryDecisions, override.discoveryDecisions),
   }
 }
 
@@ -190,31 +230,36 @@ function readState(): MarketplaceState {
 
   try {
     const stored = window.localStorage.getItem(storeKey)
-    return stored ? normalizeState({ ...initialState, ...JSON.parse(stored) }) : initialState
+    return stored ? normalizeState({ ...initialState, ...JSON.parse(stored) }) : normalizeState(initialState)
   } catch {
-    return initialState
+    return normalizeState(initialState)
   }
 }
 
 function normalizeState(state: MarketplaceState): MarketplaceState {
+  const campaigns = state.campaigns ?? []
+  const applications = state.applications ?? []
+  const collaborations = state.collaborations ?? []
+
   return {
-    campaigns: state.campaigns.map((campaign) => ({
+    campaigns: campaigns.map((campaign) => ({
       ...campaign,
       brandUserId: campaign.brandUserId,
       brand: campaign.brand ?? campaign.title.split(" ").slice(0, 2).join(" "),
+      status: campaign.status === "OPEN" ? "PUBLISHED" : campaign.status,
       applications: campaign.applications ?? 0,
       accepted: campaign.accepted ?? 0,
       reach: campaign.reach ?? 0,
       brief: campaign.brief ?? "Campaign brief pending.",
     })),
-    applications: state.applications.map((application) => ({
+    applications: applications.map((application) => ({
       ...application,
       creatorUserId: application.creatorUserId,
       match: application.match ?? 90,
       status: application.status ?? "PENDING",
     })),
-    collaborations: state.collaborations.map((collab) => {
-      const campaign = state.campaigns.find((item) => item.title === collab.campaign || item.id === collab.campaignId)
+    collaborations: collaborations.map((collab) => {
+      const campaign = campaigns.find((item) => item.title === collab.campaign || item.id === collab.campaignId)
 
       return {
         ...collab,
@@ -225,9 +270,21 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
         creator: collab.creator,
         payout: collab.payout ?? Math.min(campaign?.budget ?? 45000, 45000),
         submission: collab.submission,
+        hiddenForBrandAt: collab.hiddenForBrandAt,
+        hiddenForCreatorAt: collab.hiddenForCreatorAt,
       }
     }),
-    messages: state.messages ?? [],
+    messages: (state.messages ?? []).map((message) => {
+      const collaboration = collaborations.find((collab) => collab.id === message.roomId)
+      return {
+        ...message,
+        campaignId: message.campaignId ?? collaboration?.campaignId,
+        brandUserId: message.brandUserId ?? collaboration?.brandUserId,
+        creatorUserId: message.creatorUserId ?? collaboration?.creatorUserId,
+        deletedForBrandAt: message.deletedForBrandAt,
+        deletedForCreatorAt: message.deletedForCreatorAt,
+      }
+    }),
     wallets: (state.wallets ?? []).map((wallet) => ({
       ...wallet,
       balance: wallet.balance ?? 0,
@@ -250,7 +307,8 @@ function writeState(nextState: MarketplaceState) {
 async function loadRemoteState() {
   try {
     const remoteState = await apiClient<MarketplaceState>("/api/marketplace/state")
-    writeState(normalizeState(remoteState))
+    const localState = readState()
+    writeState(normalizeState(mergeMarketplaceStates(remoteState, localState)))
   } catch {
     remoteSyncStarted = false
     return
@@ -275,7 +333,7 @@ function getSnapshot() {
 }
 
 function getServerSnapshot() {
-  return initialState
+  return normalizeState(initialState)
 }
 
 function subscribe(onStoreChange: () => void) {
@@ -334,7 +392,21 @@ export function useMarketplaceStore() {
         ...current,
         campaigns: current.campaigns.map((campaign) =>
           campaign.id === id
-            ? { ...campaign, status: "OPEN" }
+            ? { ...campaign, status: "PUBLISHED" }
+            : campaign,
+        ),
+      }))
+    },
+    updateCampaign(id: number, updates: Partial<Pick<MarketplaceCampaign, "status" | "budget" | "deadline">>) {
+      commit((current) => ({
+        ...current,
+        campaigns: current.campaigns.map((campaign) =>
+          campaign.id === id
+            ? {
+                ...campaign,
+                ...updates,
+                status: updates.status === "OPEN" ? "PUBLISHED" : updates.status ?? campaign.status,
+              }
             : campaign,
         ),
       }))
@@ -551,9 +623,40 @@ export function useMarketplaceStore() {
             ...message,
             id: Date.now(),
             roomId,
+            campaignId: message.campaignId ?? current.collaborations.find((collab) => collab.id === roomId)?.campaignId,
+            brandUserId: message.brandUserId ?? current.collaborations.find((collab) => collab.id === roomId)?.brandUserId,
+            creatorUserId: message.creatorUserId ?? current.collaborations.find((collab) => collab.id === roomId)?.creatorUserId,
             createdAt: new Date().toISOString(),
           },
         ],
+      }))
+    },
+    hideConversation(roomId: number, role: "brand" | "creator") {
+      commit((current) => ({
+        ...current,
+        collaborations: current.collaborations.map((collab) =>
+          collab.id === roomId
+            ? {
+                ...collab,
+                hiddenForBrandAt: role === "brand" ? new Date().toISOString() : collab.hiddenForBrandAt,
+                hiddenForCreatorAt: role === "creator" ? new Date().toISOString() : collab.hiddenForCreatorAt,
+              }
+            : collab,
+        ),
+      }))
+    },
+    hideMessage(messageId: number, role: "brand" | "creator") {
+      commit((current) => ({
+        ...current,
+        messages: current.messages.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                deletedForBrandAt: role === "brand" ? new Date().toISOString() : message.deletedForBrandAt,
+                deletedForCreatorAt: role === "creator" ? new Date().toISOString() : message.deletedForCreatorAt,
+              }
+            : message,
+        ),
       }))
     },
     decideCreatorDiscovery(creator: Pick<CreatorDiscoveryDecision, "creator" | "handle">, status: CreatorDiscoveryDecision["status"]) {

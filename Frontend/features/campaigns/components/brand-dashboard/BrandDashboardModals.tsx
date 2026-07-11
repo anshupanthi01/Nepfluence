@@ -1,8 +1,16 @@
 "use client"
 
-import { FormEvent, ReactNode } from "react"
-import { Upload, X } from "lucide-react"
-import { emptyCampaignForm, lifecycleSteps } from "./brand-dashboard.shared"
+import { FormEvent, ReactNode, useState } from "react"
+import { BriefcaseBusiness, ClipboardList, Megaphone, Upload, UsersRound, X } from "lucide-react"
+import type {
+  MarketplaceApplication as Application,
+  MarketplaceCampaign as Campaign,
+  CampaignStatus,
+  MarketplaceCollaboration as Collaboration,
+} from "@/features/shared/marketplaceStore"
+import { emptyCampaignForm, lifecycleSteps, money, statusClass } from "./brand-dashboard.shared"
+
+type EditableCampaignStatus = Exclude<CampaignStatus, "OPEN">
 
 export function CampaignFormModal({
   form,
@@ -79,6 +87,172 @@ export function CampaignFormModal({
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+export function CampaignManageModal({
+  applications,
+  campaign,
+  collaborations,
+  onClose,
+  onPublish,
+  onUpdate,
+  onViewApplications,
+  onViewCollaborations,
+}: {
+  applications: Application[]
+  campaign: Campaign
+  collaborations: Collaboration[]
+  onClose: () => void
+  onPublish: (id: number) => void
+  onUpdate: (id: number, updates: Partial<Pick<Campaign, "status" | "budget" | "deadline">>) => void
+  onViewApplications: () => void
+  onViewCollaborations: () => void
+}) {
+  const campaignApplications = applications.filter((application) => application.campaignId === campaign.id)
+  const campaignCollaborations = collaborations.filter((collaboration) => collaboration.campaignId === campaign.id)
+  const pendingApplications = campaignApplications.filter((application) => application.status === "PENDING").length
+  const [form, setForm] = useState({
+    status: (campaign.status === "OPEN" ? "PUBLISHED" : campaign.status) as EditableCampaignStatus,
+    budget: campaign.budget.toString(),
+    deadline: campaign.deadline === "Not set" ? "" : campaign.deadline,
+  })
+
+  function saveCampaignChanges() {
+    onUpdate(campaign.id, {
+      status: form.status as CampaignStatus,
+      budget: Number(form.budget) || 0,
+      deadline: form.deadline || "Not set",
+    })
+  }
+
+  function publishCampaign() {
+    onPublish(campaign.id)
+    setForm((current) => ({ ...current, status: "PUBLISHED" }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4 py-6">
+      <section className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_70px_rgba(31,37,43,0.24)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e8e2d9] p-5">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Campaign manager</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight text-[#1f252b]">{campaign.title}</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#69716b]">{campaign.brief}</p>
+          </div>
+          <button className="grid size-9 shrink-0 place-items-center rounded-full bg-[#f0ece5] text-[#1f252b] transition hover:bg-[#e4ddd2]" type="button" aria-label="Close campaign manager" onClick={onClose}>
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <CampaignStat icon={Megaphone} label="Status" value={campaign.status} />
+            <CampaignStat icon={BriefcaseBusiness} label="Budget" value={money(campaign.budget)} />
+            <CampaignStat icon={ClipboardList} label="Applications" value={`${campaignApplications.length || campaign.applications}`} />
+            <CampaignStat icon={UsersRound} label="Accepted" value={`${campaign.accepted}`} />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+            <div className="rounded-[22px] border border-[#e8e2d9] bg-white p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(campaign.status)}`}>{campaign.status}</span>
+                <span className="rounded-full bg-[#f0ece5] px-2.5 py-1 text-xs font-black text-[#69716b]">{campaign.niche}</span>
+                <span className="rounded-full bg-[#f0ece5] px-2.5 py-1 text-xs font-black text-[#69716b]">{campaign.platform}</span>
+                <span className="rounded-full bg-[#f0ece5] px-2.5 py-1 text-xs font-black text-[#69716b]">{campaign.country}</span>
+              </div>
+              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <Info label="Deadline" value={campaign.deadline} />
+                <Info label="Tracked reach" value={`${Math.round(campaign.reach / 1000)}K`} />
+                <Info label="Pending applications" value={pendingApplications.toString()} />
+                <Info label="Collaborations" value={campaignCollaborations.length.toString()} />
+              </dl>
+            </div>
+
+            <div className="rounded-[22px] border border-[#e8e2d9] bg-white p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Next actions</p>
+              <div className="mt-4 grid gap-2">
+                {campaign.status === "DRAFT" && (
+                  <button className="h-10 rounded-full bg-[#1f252b] px-4 text-sm font-black text-white transition hover:bg-[#303840]" type="button" onClick={publishCampaign}>
+                    Publish campaign
+                  </button>
+                )}
+                <button className="h-10 rounded-full border border-[#ded8cf] px-4 text-sm font-black text-[#505852] transition hover:border-[#1f252b]" type="button" onClick={onViewApplications}>
+                  Review applications
+                </button>
+                <button className="h-10 rounded-full border border-[#ded8cf] px-4 text-sm font-black text-[#505852] transition hover:border-[#1f252b]" type="button" onClick={onViewCollaborations}>
+                  View collaborations
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[22px] border border-[#e8e2d9] bg-white p-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Edit campaign</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+              <label className="text-xs font-black text-[#505852]">
+                Status
+                <select className="mt-2 h-11 w-full rounded-[18px] border border-[#ded8cf] bg-white px-4 text-sm font-semibold text-[#1f252b] outline-none focus:border-[#1f252b]" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as EditableCampaignStatus }))}>
+                  {["DRAFT", "PUBLISHED", "PAUSED", "CLOSED", "COMPLETED"].map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs font-black text-[#505852]">
+                Budget
+                <input className="mt-2 h-11 w-full rounded-[18px] border border-[#ded8cf] bg-white px-4 text-sm font-semibold text-[#1f252b] outline-none focus:border-[#1f252b]" inputMode="numeric" value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} />
+              </label>
+              <label className="text-xs font-black text-[#505852]">
+                Deadline
+                <input className="mt-2 h-11 w-full rounded-[18px] border border-[#ded8cf] bg-white px-4 text-sm font-semibold text-[#1f252b] outline-none focus:border-[#1f252b]" type="date" value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
+              </label>
+              <button className="h-11 rounded-full bg-[#1f252b] px-5 text-sm font-black text-white transition hover:bg-[#303840]" type="button" onClick={saveCampaignChanges}>
+                Save changes
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-[22px] border border-[#e8e2d9] bg-white p-4">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Recent applicants</p>
+            <div className="mt-3 divide-y divide-[#e8e2d9]">
+              {campaignApplications.slice(0, 4).map((application) => (
+                <div key={application.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div>
+                    <p className="text-sm font-black text-[#1f252b]">{application.creator}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#69716b]">{application.handle} / {application.niche} / {application.followers} followers</p>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(application.status)}`}>{application.status}</span>
+                </div>
+              ))}
+              {campaignApplications.length === 0 && (
+                <p className="py-4 text-sm font-semibold text-[#69716b]">No creator applications have arrived for this campaign yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function CampaignStat({ icon: Icon, label, value }: { icon: typeof Megaphone; label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] border border-[#e8e2d9] bg-white p-4">
+      <span className="grid size-9 place-items-center rounded-full bg-[#f0ece5] text-[#1f252b]">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-[#8a8175]">{label}</p>
+      <p className="mt-1 truncate text-lg font-black text-[#1f252b]">{value}</p>
+    </div>
+  )
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{label}</dt>
+      <dd className="mt-1 font-black text-[#1f252b]">{value}</dd>
     </div>
   )
 }

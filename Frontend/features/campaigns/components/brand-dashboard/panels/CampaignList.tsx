@@ -63,7 +63,7 @@ export function CampaignList({
   campaigns: Campaign[]
   onPublish: (id: number) => void
   onCreate?: () => void
-  onManage?: (title: string) => void
+  onManage?: (campaign: Campaign) => void
   compact?: boolean
 }) {
   return (
@@ -121,7 +121,7 @@ export function CampaignList({
                     Publish
                   </Button>
                 ) : (
-                  <Button className="h-9 rounded-full border-[#ded8cf] px-4 text-xs font-black text-[#505852]" variant="outline" type="button" onClick={() => onManage?.(campaign.title)}>
+                  <Button className="h-9 rounded-full border-[#ded8cf] px-4 text-xs font-black text-[#505852]" variant="outline" type="button" onClick={() => onManage?.(campaign)}>
                     Manage
                   </Button>
                 )}

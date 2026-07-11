@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { BadgeCheck, Camera, CheckCircle2, Edit3, Eye, Globe, Heart, KeyRound, PlayCircle, Star, Upload, X } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { BadgeCheck, Camera, CheckCircle2, Edit3, Eye, FileText, Globe, Heart, KeyRound, PlayCircle, Star, Trash2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { changePassword } from "@/features/account/api/accountApi"
 import { createMyCreatorProfile, updateMyCreatorProfile } from "@/features/creator-profile/api/creatorProfileApi"
@@ -35,6 +35,28 @@ type ProfileForm = {
   bio: string
 }
 
+type PortfolioDraft = {
+  id: string
+  name: string
+  kind: "image" | "video" | "file"
+  size: string
+  previewUrl?: string
+}
+
+function fileSizeLabel(size: number) {
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function readFilePreview(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
 export function ProfilePanel({
   creatorProfile,
   onProfileChange,
@@ -42,11 +64,15 @@ export function ProfilePanel({
   creatorProfile: CreatorWorkspaceProfile
   onProfileChange: (profile: CreatorWorkspaceProfile) => void
 }) {
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const portfolioInputRef = useRef<HTMLInputElement>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [profileImagePreview, setProfileImagePreview] = useState("")
+  const [portfolioDrafts, setPortfolioDrafts] = useState<PortfolioDraft[]>([])
   const [statusMessage, setStatusMessage] = useState("")
   const [passwordMessage, setPasswordMessage] = useState("")
   const [form, setForm] = useState<ProfileForm>({
@@ -166,6 +192,53 @@ export function ProfilePanel({
     setStatusMessage("")
   }
 
+  async function selectProfilePhoto(fileList: FileList | null) {
+    const file = fileList?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      setStatusMessage("Choose an image file for your profile photo.")
+      return
+    }
+
+    try {
+      setProfileImagePreview(await readFilePreview(file))
+      setStatusMessage("Profile photo selected. Upload API is pending backend Phase 7.")
+    } catch {
+      setStatusMessage("Unable to preview this profile photo.")
+    } finally {
+      if (photoInputRef.current) photoInputRef.current.value = ""
+    }
+  }
+
+  async function selectPortfolioFiles(fileList: FileList | null) {
+    const files = Array.from(fileList ?? [])
+    if (!files.length) return
+
+    const drafts = await Promise.all(
+      files.map(async (file) => {
+        const isImage = file.type.startsWith("image/")
+        const isVideo = file.type.startsWith("video/")
+        const previewUrl = isImage ? await readFilePreview(file).catch(() => undefined) : undefined
+
+        return {
+          id: `${file.name}-${file.lastModified}-${file.size}`,
+          name: file.name,
+          kind: isImage ? "image" : isVideo ? "video" : "file",
+          size: fileSizeLabel(file.size),
+          previewUrl,
+        } satisfies PortfolioDraft
+      }),
+    )
+
+    setPortfolioDrafts((current) => {
+      const existing = new Set(current.map((item) => item.id))
+      return [...current, ...drafts.filter((item) => !existing.has(item.id))].slice(0, 8)
+    })
+    setStatusMessage("Portfolio work selected. Upload API is pending backend Phase 7.")
+    if (portfolioInputRef.current) portfolioInputRef.current.value = ""
+  }
+
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_46px_rgba(31,37,43,0.07)]">
@@ -176,10 +249,16 @@ export function ProfilePanel({
           <div className="relative flex min-h-[300px] flex-col justify-end gap-5 p-5 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="relative">
-                <div className="grid size-28 place-items-center rounded-[28px] bg-[#1f252b] text-4xl font-black text-white shadow-[0_18px_44px_rgba(31,37,43,0.18)] ring-4 ring-white sm:size-32">
-                  {initials(creatorProfile.creator)}
+                <div className="grid size-28 overflow-hidden rounded-[28px] bg-[#1f252b] text-4xl font-black text-white shadow-[0_18px_44px_rgba(31,37,43,0.18)] ring-4 ring-white sm:size-32">
+                  {profileImagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="h-full w-full object-cover" src={profileImagePreview} alt="" />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center">{initials(creatorProfile.creator)}</span>
+                  )}
                 </div>
-                <button className="absolute -bottom-2 -right-2 grid size-10 place-items-center rounded-full bg-[#1f252b] text-white shadow-lg transition hover:bg-[#363d43]" type="button" aria-label="Change profile photo" onClick={() => setStatusMessage("Photo upload will connect when media storage is ready.")}>
+                <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" onChange={(event) => void selectProfilePhoto(event.target.files)} />
+                <button className="absolute -bottom-2 -right-2 grid size-10 place-items-center rounded-full bg-[#1f252b] text-white shadow-lg transition hover:bg-[#363d43]" type="button" aria-label="Change profile photo" onClick={() => photoInputRef.current?.click()}>
                   <Camera className="size-4" aria-hidden="true" />
                 </button>
               </div>
@@ -226,7 +305,14 @@ export function ProfilePanel({
             <section className="rounded-[24px] border border-[#e8e2d9] bg-white p-5">
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Public preview</p>
               <div className="mt-4 flex flex-col gap-4 rounded-[22px] bg-[#fbfaf7] p-4 sm:flex-row sm:items-center">
-                <div className="grid size-20 place-items-center rounded-[22px] bg-[#1f252b] text-2xl font-black text-white">{initials(creatorProfile.creator)}</div>
+                <div className="grid size-20 overflow-hidden rounded-[22px] bg-[#1f252b] text-2xl font-black text-white">
+                  {profileImagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="h-full w-full object-cover" src={profileImagePreview} alt="" />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center">{initials(creatorProfile.creator)}</span>
+                  )}
+                </div>
                 <div>
                   <h3 className="text-lg font-black text-[#1f252b]">{creatorProfile.creator}</h3>
                   <p className="mt-1 text-sm font-semibold text-[#69716b]">{creatorProfile.handle} / {creatorProfile.niche}</p>
@@ -317,16 +403,45 @@ export function ProfilePanel({
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Portfolio</p>
                 <h3 className="mt-1 text-lg font-black tracking-tight text-[#1f252b]">Featured work</h3>
               </div>
-              <Button className="h-9 rounded-full border-[#ded8cf] px-3 text-xs font-black text-[#505852]" variant="outline" type="button" onClick={() => setStatusMessage("Portfolio uploads will connect when media storage is ready.")}>
+              <Button className="h-9 rounded-full border-[#ded8cf] px-3 text-xs font-black text-[#505852]" variant="outline" type="button" onClick={() => portfolioInputRef.current?.click()}>
                 <Upload className="size-4" aria-hidden="true" />
                 Add work
               </Button>
+              <input ref={portfolioInputRef} className="sr-only" type="file" accept="image/*,video/*,.pdf" multiple onChange={(event) => void selectPortfolioFiles(event.target.files)} />
             </div>
-            <div className="mt-4 rounded-[20px] border border-dashed border-[#ded8cf] bg-[#fbfaf7] p-8 text-center">
-              <PlayCircle className="mx-auto size-7 text-[#8a8175]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-black text-[#1f252b]">No content samples connected yet</p>
-              <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">Your portfolio should stay empty until you connect social media or upload real campaign work.</p>
-            </div>
+            {portfolioDrafts.length ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {portfolioDrafts.map((item) => (
+                  <article key={item.id} className="overflow-hidden rounded-[20px] border border-[#e8e2d9] bg-[#fbfaf7]">
+                    <div className="grid aspect-video place-items-center bg-[#f0ece5]">
+                      {item.previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img className="h-full w-full object-cover" src={item.previewUrl} alt="" />
+                      ) : item.kind === "video" ? (
+                        <PlayCircle className="size-8 text-[#8a8175]" aria-hidden="true" />
+                      ) : (
+                        <FileText className="size-8 text-[#8a8175]" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex items-start justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#1f252b]">{item.name}</p>
+                        <p className="mt-1 text-xs font-semibold capitalize text-[#69716b]">{item.kind} / {item.size}</p>
+                      </div>
+                      <button className="grid size-8 shrink-0 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b] transition hover:text-[#b83232]" type="button" aria-label={`Remove ${item.name}`} onClick={() => setPortfolioDrafts((current) => current.filter((draft) => draft.id !== item.id))}>
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <button className="mt-4 w-full rounded-[20px] border border-dashed border-[#ded8cf] bg-[#fbfaf7] p-8 text-center transition hover:border-[#1f252b]" type="button" onClick={() => portfolioInputRef.current?.click()}>
+                <PlayCircle className="mx-auto size-7 text-[#8a8175]" aria-hidden="true" />
+                <p className="mt-3 text-sm font-black text-[#1f252b]">No content samples connected yet</p>
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">Add real campaign work or connect socials when the backend upload endpoints land.</p>
+              </button>
+            )}
           </section>
         </div>
       </div>

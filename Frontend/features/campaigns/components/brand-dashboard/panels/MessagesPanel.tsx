@@ -1,6 +1,6 @@
 "use client"
 
-import { Send } from "lucide-react"
+import { Send, Trash2 } from "lucide-react"
 import type { MarketplaceCollaboration as Collaboration, useMarketplaceStore } from "@/features/shared/marketplaceStore"
 
 export function MessagesPanel({
@@ -9,6 +9,8 @@ export function MessagesPanel({
   selectedRoomId,
   message,
   onMessageChange,
+  onDeleteConversation,
+  onDeleteMessage,
   onRoomChange,
   onSend,
 }: {
@@ -17,11 +19,33 @@ export function MessagesPanel({
   selectedRoomId: number
   message: string
   onMessageChange: (message: string) => void
+  onDeleteConversation: (roomId: number) => void
+  onDeleteMessage: (messageId: number) => void
   onRoomChange: (roomId: number) => void
   onSend: () => void
 }) {
-  const activeRoom = collaborations.find((collab) => collab.id === selectedRoomId) ?? collaborations[0]
-  const roomMessages = messages.filter((item) => item.roomId === activeRoom?.id)
+  const directThreads = collaborations.filter((collab, index, list) => {
+    const threadKey = `${collab.campaignId}:${collab.creatorUserId ?? collab.creator}`
+    return list.findIndex((item) => `${item.campaignId}:${item.creatorUserId ?? item.creator}` === threadKey) === index
+  })
+  const activeRoom = directThreads.find((collab) => collab.id === selectedRoomId) ?? directThreads[0]
+  const activeThreadKey = activeRoom ? `${activeRoom.campaignId}:${activeRoom.creatorUserId ?? activeRoom.creator}` : null
+  const activeThreadRoomIds = new Set(
+    collaborations
+      .filter((collab) => `${collab.campaignId}:${collab.creatorUserId ?? collab.creator}` === activeThreadKey)
+      .map((collab) => collab.id),
+  )
+  const roomMessages = messages.filter((item) => {
+    if (item.deletedForBrandAt) return false
+    if (activeRoom && item.campaignId && (item.creatorUserId || activeRoom.creatorUserId)) {
+      return item.campaignId === activeRoom.campaignId && (item.creatorUserId ?? activeRoom.creatorUserId) === activeRoom.creatorUserId
+    }
+    return activeThreadRoomIds.has(item.roomId)
+  })
+  const threadsByCampaign = directThreads.reduce<Record<string, Collaboration[]>>((groups, collab) => {
+    groups[collab.campaign] = [...(groups[collab.campaign] ?? []), collab]
+    return groups
+  }, {})
 
   return (
     <section className="grid min-h-[620px] gap-4 lg:grid-cols-[300px_1fr]">
@@ -31,14 +55,21 @@ export function MessagesPanel({
           <h2 className="mt-1 text-lg font-black text-[#1f252b]">Messages</h2>
         </div>
         <div className="space-y-2">
-          {collaborations.map((collab) => (
-            <button key={collab.id} className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition ${activeRoom?.id === collab.id ? "bg-white shadow-sm ring-1 ring-[#e8e2d9]" : "hover:bg-white/70"}`} type="button" onClick={() => onRoomChange(collab.id)}>
-              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#1f252b] text-xs font-black text-white">{collab.creator.charAt(0)}</span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-[#1f252b]">{collab.creator}</span>
-                <span className="block truncate text-xs font-semibold text-[#69716b]">{collab.campaign}</span>
-              </span>
-            </button>
+          {Object.entries(threadsByCampaign).map(([campaign, threads]) => (
+            <div key={campaign} className="rounded-[18px] bg-white/55 p-2">
+              <p className="px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{campaign}</p>
+              <div className="mt-1 space-y-1">
+                {threads.map((collab) => (
+                  <button key={collab.id} className={`flex w-full items-center gap-3 rounded-[16px] p-3 text-left transition ${activeRoom?.id === collab.id ? "bg-white shadow-sm ring-1 ring-[#e8e2d9]" : "hover:bg-white/70"}`} type="button" onClick={() => onRoomChange(collab.id)}>
+                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#1f252b] text-xs font-black text-white">{collab.creator.charAt(0)}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-[#1f252b]">{collab.creator}</span>
+                      <span className="block truncate text-xs font-semibold text-[#69716b]">Private thread</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
           {collaborations.length === 0 && (
             <div className="rounded-[18px] border border-dashed border-[#ded8cf] bg-white p-4 text-center">
@@ -53,22 +84,33 @@ export function MessagesPanel({
         <header className="border-b border-[#e8e2d9] p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Collaboration room</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Direct message</p>
               <h2 className="mt-1 text-xl font-black text-[#1f252b]">{activeRoom?.creator ?? "Messages"}</h2>
+              {activeRoom && <p className="mt-1 text-xs font-semibold text-[#69716b]">{activeRoom.campaign} / {activeRoom.brand} to {activeRoom.creator}</p>}
             </div>
-            <span className="w-fit rounded-full bg-[#f0ece5] px-3 py-1 text-xs font-black text-[#505852]">
-              {activeRoom?.escrow === "HELD" ? "Escrow held" : "Escrow pending"}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-fit rounded-full bg-[#f0ece5] px-3 py-1 text-xs font-black text-[#505852]">
+                {activeRoom?.escrow === "HELD" ? "Escrow held" : "Escrow pending"}
+              </span>
+              {activeRoom && (
+                <button className="grid size-9 place-items-center rounded-full border border-[#e8caca] bg-white text-[#9f1d1d] transition hover:bg-[#fff0f0]" type="button" aria-label="Delete conversation" onClick={() => onDeleteConversation(activeRoom.id)}>
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
           {roomMessages.map((item) => (
             <div key={item.id} className={item.sender === "brand" ? "ml-auto max-w-md" : "max-w-md"}>
-              <p className="mb-1 text-[11px] font-black uppercase tracking-[0.1em] text-[#8a8175]">{item.senderName}</p>
-              <p className={`rounded-[20px] px-4 py-3 text-sm font-semibold leading-6 ${item.sender === "brand" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852] ring-1 ring-[#e8e2d9]"}`}>
-                {item.body}
-              </p>
+              <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-[#8a8175]">{item.senderName}</p>
+                <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => onDeleteMessage(item.id)}>
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                </button>
+              </div>
+              <p className={`rounded-[20px] px-4 py-3 text-sm font-semibold leading-6 ${item.sender === "brand" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852] ring-1 ring-[#e8e2d9]"}`}>{item.body}</p>
             </div>
           ))}
           {roomMessages.length === 0 && (

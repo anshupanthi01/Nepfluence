@@ -1,6 +1,6 @@
 "use client"
 
-import { Send } from "lucide-react"
+import { Send, Trash2 } from "lucide-react"
 import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
 import { type Collaboration } from "../creator-dashboard.shared"
 
@@ -10,6 +10,8 @@ export function MessagesPanel({
   selectedRoomId,
   message,
   onMessageChange,
+  onDeleteConversation,
+  onDeleteMessage,
   onRoomChange,
   onSend,
 }: {
@@ -18,11 +20,29 @@ export function MessagesPanel({
   selectedRoomId: number
   message: string
   onMessageChange: (message: string) => void
+  onDeleteConversation: (roomId: number) => void
+  onDeleteMessage: (messageId: number) => void
   onRoomChange: (roomId: number) => void
   onSend: () => void
 }) {
-  const activeRoom = collaborations.find((collab) => collab.id === selectedRoomId) ?? collaborations[0]
-  const roomMessages = messages.filter((item) => item.roomId === activeRoom?.id)
+  const directThreads = collaborations.filter((collab, index, list) => {
+    const threadKey = `${collab.campaignId}:${collab.brandUserId ?? collab.brand}`
+    return list.findIndex((item) => `${item.campaignId}:${item.brandUserId ?? item.brand}` === threadKey) === index
+  })
+  const activeRoom = directThreads.find((collab) => collab.id === selectedRoomId) ?? directThreads[0]
+  const activeThreadKey = activeRoom ? `${activeRoom.campaignId}:${activeRoom.brandUserId ?? activeRoom.brand}` : null
+  const activeThreadRoomIds = new Set(
+    collaborations
+      .filter((collab) => `${collab.campaignId}:${collab.brandUserId ?? collab.brand}` === activeThreadKey)
+      .map((collab) => collab.id),
+  )
+  const roomMessages = messages.filter((item) => {
+    if (item.deletedForCreatorAt) return false
+    if (activeRoom && item.campaignId && (item.brandUserId || activeRoom.brandUserId)) {
+      return item.campaignId === activeRoom.campaignId && (item.brandUserId ?? activeRoom.brandUserId) === activeRoom.brandUserId
+    }
+    return activeThreadRoomIds.has(item.roomId)
+  })
 
   return (
     <section className="grid min-h-[calc(100vh-112px)] gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -32,7 +52,7 @@ export function MessagesPanel({
           <h2 className="mt-1 text-lg font-black tracking-tight text-[#1f252b]">Brand messages</h2>
         </div>
         <div className="space-y-2">
-          {collaborations.map((collab) => (
+          {directThreads.map((collab) => (
             <button
               key={collab.id}
               className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition ${
@@ -61,18 +81,31 @@ export function MessagesPanel({
 
       <div className="flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_46px_rgba(31,37,43,0.06)]">
         <div className="border-b border-[#e8e2d9] px-5 py-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Conversation</p>
-          <h2 className="mt-1 text-xl font-black tracking-tight text-[#1f252b]">{activeRoom?.brand ?? "Messages"}</h2>
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Direct message</p>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black tracking-tight text-[#1f252b]">{activeRoom?.brand ?? "Messages"}</h2>
+              {activeRoom && <p className="mt-1 text-xs font-semibold text-[#69716b]">{activeRoom.campaign} / {activeRoom.creator} to {activeRoom.brand}</p>}
+            </div>
+            {activeRoom && (
+              <button className="grid size-9 place-items-center rounded-full border border-[#e8caca] bg-white text-[#9f1d1d] transition hover:bg-[#fff0f0]" type="button" aria-label="Delete conversation" onClick={() => onDeleteConversation(activeRoom.id)}>
+                <Trash2 className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
           <p className="mt-1 text-sm font-semibold text-[#69716b]">{activeRoom?.escrow === "HELD" ? "Escrow is held, so chat and deliverables are open." : "Chat unlocks when escrow is deposited."}</p>
         </div>
 
         <div className="min-h-[360px] flex-1 space-y-3 overflow-y-auto p-5">
           {roomMessages.map((item) => (
             <div key={item.id} className={item.sender === "creator" ? "ml-auto max-w-md" : "max-w-md"}>
-              <p className="mb-1 px-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{item.senderName}</p>
-              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${item.sender === "creator" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>
-                {item.body}
-              </p>
+              <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{item.senderName}</p>
+                <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => onDeleteMessage(item.id)}>
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                </button>
+              </div>
+              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${item.sender === "creator" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>{item.body}</p>
             </div>
           ))}
           {roomMessages.length === 0 && (

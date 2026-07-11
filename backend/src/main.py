@@ -16,6 +16,7 @@ from src.google_auth import router as google_auth_router
 from src.integrations.youtube.routes import router as youtube_router
 from src.marketplace.routes import router as marketplace_router
 from src.contact.routes import router as contact_router
+from src.conversations.routes import router as conversations_router
 
 
 async def ensure_sqlite_schema(conn) -> None:
@@ -29,6 +30,57 @@ async def ensure_sqlite_schema(conn) -> None:
         await conn.execute(
             text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)")
         )
+    await conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER NOT NULL PRIMARY KEY,
+                campaign_id INTEGER NOT NULL,
+                brand_profile_id INTEGER NOT NULL,
+                influencer_profile_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                FOREIGN KEY(campaign_id) REFERENCES campaigns (id) ON DELETE CASCADE,
+                FOREIGN KEY(brand_profile_id) REFERENCES brand_profiles (id) ON DELETE CASCADE,
+                FOREIGN KEY(influencer_profile_id) REFERENCES influencer_profiles (id) ON DELETE CASCADE,
+                CONSTRAINT uq_conversation_campaign_influencer UNIQUE (campaign_id, influencer_profile_id)
+            )
+            """
+        )
+    )
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_campaign_id ON conversations (campaign_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_brand_profile_id ON conversations (brand_profile_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_influencer_profile_id ON conversations (influencer_profile_id)"))
+    await conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER NOT NULL PRIMARY KEY,
+                conversation_id INTEGER NOT NULL,
+                sender_user_id INTEGER NOT NULL,
+                body TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                FOREIGN KEY(conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
+                FOREIGN KEY(sender_user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+            """
+        )
+    )
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_conversation_id ON messages (conversation_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_sender_user_id ON messages (sender_user_id)"))
+    result = await conn.execute(text("PRAGMA table_info(conversations)"))
+    conversation_columns = {row[1] for row in result.fetchall()}
+    if "hidden_for_brand_at" not in conversation_columns:
+        await conn.execute(text("ALTER TABLE conversations ADD COLUMN hidden_for_brand_at DATETIME"))
+    if "hidden_for_creator_at" not in conversation_columns:
+        await conn.execute(text("ALTER TABLE conversations ADD COLUMN hidden_for_creator_at DATETIME"))
+
+    result = await conn.execute(text("PRAGMA table_info(messages)"))
+    message_columns = {row[1] for row in result.fetchall()}
+    if "deleted_for_sender_at" not in message_columns:
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_for_sender_at DATETIME"))
+    if "deleted_for_recipient_at" not in message_columns:
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_for_recipient_at DATETIME"))
 
 
 @asynccontextmanager
@@ -77,6 +129,7 @@ app.include_router(campaign_proposal_router)
 app.include_router(youtube_router)  # ✅ moved here
 app.include_router(marketplace_router)
 app.include_router(contact_router)
+app.include_router(conversations_router)
 
 
 @app.get("/")

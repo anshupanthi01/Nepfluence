@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-CampaignStatus = Literal["DRAFT", "OPEN", "PAUSED", "CLOSED", "COMPLETED"]
+CampaignStatus = Literal["DRAFT", "OPEN", "PUBLISHED", "PAUSED", "CLOSED", "COMPLETED"]
 ApplicationStatus = Literal["PENDING", "ACCEPTED", "REJECTED"]
 EscrowStatus = Literal["NOT_REQUIRED", "PENDING", "HELD", "RELEASED"]
 CollaborationState = Literal["ESCROW_PENDING", "IN_PROGRESS", "SUBMITTED", "APPROVED"]
@@ -73,15 +73,22 @@ class MarketplaceCollaboration(BaseModel):
     deliverable: str
     payout: int
     submission: DeliverableSubmission | None = None
+    hiddenForBrandAt: str | None = None
+    hiddenForCreatorAt: str | None = None
 
 
 class MarketplaceMessage(BaseModel):
     id: int
     roomId: int
+    campaignId: int | None = None
+    brandUserId: str | None = None
+    creatorUserId: str | None = None
     sender: Sender
     senderName: str
     body: str
     createdAt: str
+    deletedForBrandAt: str | None = None
+    deletedForCreatorAt: str | None = None
 
 
 class MarketplaceWallet(BaseModel):

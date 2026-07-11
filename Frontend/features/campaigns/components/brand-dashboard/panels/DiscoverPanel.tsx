@@ -120,8 +120,8 @@ export function DiscoverPanel({
   const [notice, setNotice] = useState("")
   const [platformFilterOpen, setPlatformFilterOpen] = useState(false)
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
-  const [instagramFilter, setInstagramFilter] = useState(true)
-  const [selectedPlatforms, setSelectedPlatforms] = useState<ConnectedPlatform[]>(["instagram"])
+  const [instagramFilter, setInstagramFilter] = useState(false)
+  const [selectedPlatforms, setSelectedPlatforms] = useState<ConnectedPlatform[]>([])
   const [includeBrandAccounts, setIncludeBrandAccounts] = useState(false)
   const [affiliateOnly, setAffiliateOnly] = useState(false)
   const [creatorGender, setCreatorGender] = useState<"all" | "female" | "male">("all")
@@ -140,7 +140,7 @@ export function DiscoverPanel({
   const rejectedHandles = discoveryDecisions.filter((decision) => decision.status === "REJECTED").map((decision) => decision.handle)
 
   const visibleCreators = creators.filter((creator) => {
-    const connectedPlatforms = creatorPlatformMap[creator.handle] ?? ["instagram"]
+    const connectedPlatforms = getCreatorPlatforms(creator)
     const platformMatches = selectedPlatforms.length === 0 || selectedPlatforms.some((platform) => connectedPlatforms.includes(platform))
 
     if (!platformMatches) return false
@@ -224,8 +224,8 @@ export function DiscoverPanel({
   function clearFilters() {
     onSearch("")
     onFilter("ALL")
-    setInstagramFilter(true)
-    setSelectedPlatforms(["instagram"])
+    setInstagramFilter(false)
+    setSelectedPlatforms([])
     setIncludeBrandAccounts(false)
     setAffiliateOnly(false)
     setCreatorGender("all")
@@ -899,14 +899,6 @@ function ContactModal({
 
 type ConnectedPlatform = "instagram" | "youtube" | "tiktok" | "x" | "twitch" | "pinterest" | "blog"
 
-const creatorPlatformMap: Record<string, ConnectedPlatform[]> = {
-  "@aaratiugc": ["instagram", "youtube"],
-  "@trailnischal": ["instagram"],
-  "@sanyastyle": ["instagram", "tiktok"],
-  "@momoreels": ["youtube", "tiktok"],
-  "@kabircreates": ["instagram", "youtube", "tiktok"],
-}
-
 const platformLabels: Record<ConnectedPlatform, { label: string; badge: string; tone: string }> = {
   instagram: { label: "Instagram", badge: "IG", tone: "text-[#ff3aa6]" },
   youtube: { label: "YouTube", badge: "YT", tone: "text-[#e11d48]" },
@@ -915,6 +907,28 @@ const platformLabels: Record<ConnectedPlatform, { label: string; badge: string; 
   twitch: { label: "Twitch", badge: "TW", tone: "text-[#6441a5]" },
   pinterest: { label: "Pinterest", badge: "P", tone: "text-[#bd081c]" },
   blog: { label: "Blog", badge: "WP", tone: "text-[#69716b]" },
+}
+
+const platformAliases: Record<string, ConnectedPlatform> = {
+  instagram: "instagram",
+  ig: "instagram",
+  youtube: "youtube",
+  yt: "youtube",
+  tiktok: "tiktok",
+  tik_tok: "tiktok",
+  x: "x",
+  twitter: "x",
+  twitch: "twitch",
+  pinterest: "pinterest",
+  blog: "blog",
+}
+
+function getCreatorPlatforms(creator: Creator): ConnectedPlatform[] {
+  const platforms = (creator.platforms ?? [])
+    .map((platform) => platformAliases[platform.toLowerCase()])
+    .filter((platform): platform is ConnectedPlatform => Boolean(platform))
+
+  return platforms.length > 0 ? Array.from(new Set(platforms)) : []
 }
 
 function platformMetrics(creator: Creator, platform: ConnectedPlatform) {
@@ -933,8 +947,9 @@ function platformMetrics(creator: Creator, platform: ConnectedPlatform) {
 }
 
 function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator; onClose: () => void; onContact: () => void }) {
-  const connectedPlatforms = creatorPlatformMap[creator.handle] ?? ["instagram"]
-  const [activePlatform, setActivePlatform] = useState<ConnectedPlatform>(connectedPlatforms[0])
+  const connectedPlatforms = getCreatorPlatforms(creator)
+  const profilePlatforms = connectedPlatforms.length > 0 ? connectedPlatforms : (["instagram"] as ConnectedPlatform[])
+  const [activePlatform, setActivePlatform] = useState<ConnectedPlatform>(profilePlatforms[0])
   const metrics = platformMetrics(creator, activePlatform)
   const samples = creatorWorkSamples.slice(0, 3)
   const heatValues = Array.from({ length: 42 }, (_, index) => ((index * creator.handle.length + activePlatform.length) % 10))
@@ -967,7 +982,7 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
 
         <div className="border-b border-[#e8e2d9] px-4 py-2">
           <div className="flex flex-wrap gap-2">
-            {connectedPlatforms.map((platform) => (
+            {profilePlatforms.map((platform) => (
               <button
                 key={platform}
                 className={`inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-black transition ${
@@ -1091,7 +1106,7 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
 
             <h3 className="mt-5 text-sm font-black text-[#1f252b]">Connected channels</h3>
             <div className="mt-3 grid gap-2">
-              {connectedPlatforms.map((platform) => (
+              {profilePlatforms.map((platform) => (
                 <button key={platform} className="flex items-center justify-between rounded-[8px] border border-[#e8e2d9] bg-white px-3 py-2 text-left text-xs font-black text-[#505852]" type="button" onClick={() => setActivePlatform(platform)}>
                   <span className="inline-flex items-center gap-2">
                     <span className={`grid size-6 place-items-center rounded-full bg-[#f0ece5] text-[10px] ${platformLabels[platform].tone}`}>{platformLabels[platform].badge}</span>

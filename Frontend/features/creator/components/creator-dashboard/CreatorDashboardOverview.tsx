@@ -3,6 +3,7 @@
 import { BriefcaseBusiness, CheckCircle2, Clock3, ShieldCheck } from "lucide-react"
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { getMyCreatorProfile } from "@/features/creator-profile/api/creatorProfileApi"
+import { hideConversation as hideConversationApi, hideMessage as hideMessageApi } from "@/features/conversations/api/conversationApi"
 import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
 import { readMockSession } from "@/lib/auth"
 import {
@@ -25,7 +26,10 @@ import {
   type Section,
   emptySubmissionForm,
   money,
+  navItems,
 } from "./creator-dashboard.shared"
+
+const creatorSectionKey = "nepfluence-creator-active-section"
 
 function titleFromEmail(email?: string) {
   const base = email?.split("@")[0] || "Creator"
@@ -54,9 +58,38 @@ function readConnectedPlatforms(userId?: string) {
   }
 }
 
+function readCreatorSection(): Section {
+  if (typeof window === "undefined") return "Profile"
+  const storedSection = window.localStorage.getItem(creatorSectionKey) as Section | null
+  return storedSection && navItems.some((item) => item.label === storedSection) ? storedSection : "Profile"
+}
+
+function emptyCreatorProfile(session?: ReturnType<typeof readMockSession>): CreatorWorkspaceProfile {
+  const localPlatforms = readConnectedPlatforms(session?.userId)
+
+  return {
+    creator: session?.username || titleFromEmail(session?.email),
+    handle: handleFromSession(session?.email, session?.username),
+    country: "NP",
+    niche: "Profile not set",
+    followers: "0",
+    bio: "Connect your social accounts and complete your profile to show brands what you create.",
+    location: "Location not set",
+    connectedPlatforms: localPlatforms,
+    analytics: [
+      { label: "Followers", value: "0", detail: "Connect socials" },
+      { label: "Avg views", value: "0", detail: "Connect socials" },
+      { label: "Total views", value: "0", detail: "Connect socials" },
+      { label: "Videos", value: "0", detail: "Connect socials" },
+      { label: "Engagement", value: "0%", detail: "Connect socials" },
+      { label: "Accounts", value: localPlatforms.length.toString(), detail: "Connected" },
+    ],
+  }
+}
+
 export default function CreatorDashboardOverview() {
   const marketplace = useMarketplaceStore()
-  const [activeSection, setActiveSection] = useState<Section>("Profile")
+  const [activeSection, setActiveSection] = useState<Section>(() => readCreatorSection())
   const session = readMockSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
@@ -65,25 +98,12 @@ export default function CreatorDashboardOverview() {
   const [selectedRoomId, setSelectedRoomId] = useState(1)
   const [submissionCollab, setSubmissionCollab] = useState<Collaboration | null>(null)
   const [submissionForm, setSubmissionForm] = useState(emptySubmissionForm)
-  const [creatorProfile, setCreatorProfile] = useState<CreatorWorkspaceProfile>(() => ({
-    creator: session?.username || titleFromEmail(session?.email),
-    handle: handleFromSession(session?.email, session?.username),
-    country: "NP",
-    niche: "Profile not set",
-    followers: "0",
-    bio: "Connect your social accounts and complete your profile to show brands what you create.",
-    location: "Location not set",
-    connectedPlatforms: readConnectedPlatforms(session?.userId),
-    analytics: [
-      { label: "Followers", value: "0", detail: "Connect socials" },
-      { label: "Avg views", value: "0", detail: "Connect socials" },
-      { label: "Total views", value: "0", detail: "Connect socials" },
-      { label: "Videos", value: "0", detail: "Connect socials" },
-      { label: "Engagement", value: "0%", detail: "Connect socials" },
-      { label: "Accounts", value: readConnectedPlatforms(session?.userId).length.toString(), detail: "Connected" },
-    ],
-  }))
+  const [creatorProfile, setCreatorProfile] = useState<CreatorWorkspaceProfile>(() => emptyCreatorProfile(session))
   const [activities, setActivities] = useState<Activity[]>([])
+
+  useEffect(() => {
+    window.localStorage.setItem(creatorSectionKey, activeSection)
+  }, [activeSection])
 
   useEffect(() => {
     let cancelled = false
@@ -122,7 +142,12 @@ export default function CreatorDashboardOverview() {
         })
       } catch {
         if (!cancelled) {
-          setCreatorProfile((current) => ({ ...current, connectedPlatforms: localPlatforms }))
+          setCreatorProfile((current) => ({
+            ...emptyCreatorProfile(currentSession),
+            creator: current.creator,
+            handle: current.handle,
+            connectedPlatforms: Array.from(new Set([...localPlatforms, ...current.connectedPlatforms])),
+          }))
         }
       }
     }
@@ -140,7 +165,7 @@ export default function CreatorDashboardOverview() {
   const creatorApplicationCampaignIds = useMemo(() => new Set(creatorApplications.map((application) => application.campaignId)), [creatorApplications])
 
   const campaigns: CreatorCampaign[] = marketplace.campaigns
-    .filter((campaign) => campaign.status === "OPEN" || creatorApplicationCampaignIds.has(campaign.id))
+    .filter((campaign) => ["PUBLISHED", "OPEN"].includes(String(campaign.status)) || creatorApplicationCampaignIds.has(campaign.id))
     .map((campaign) => {
       const application = creatorApplications.find((item) => item.campaignId === campaign.id)
 
@@ -153,7 +178,8 @@ export default function CreatorDashboardOverview() {
     })
 
   const collaborations = marketplace.collaborations.filter((collab) =>
-    collab.creatorUserId ? collab.creatorUserId === session?.userId : collab.creator === creatorProfile.creator,
+    (collab.creatorUserId ? collab.creatorUserId === session?.userId : collab.creator === creatorProfile.creator) &&
+    !collab.hiddenForCreatorAt,
   )
   const activeRoomId = collaborations.some((collab) => collab.id === selectedRoomId) ? selectedRoomId : collaborations[0]?.id
   const creatorWallet = marketplace.getWallet(session?.userId, "creator")
@@ -237,12 +263,31 @@ export default function CreatorDashboardOverview() {
     if (!room) return
 
     marketplace.sendMessage(room.id, {
+      campaignId: room.campaignId,
+      brandUserId: room.brandUserId,
+      creatorUserId: room.creatorUserId,
       sender: "creator",
       senderName: creatorProfile.creator,
       body: message,
     })
     setCreatorMessage("")
     addActivity("Message sent to brand collaboration room.", "blue")
+  }
+
+  function deleteCreatorConversation(roomId: number) {
+    const room = collaborations.find((collab) => collab.id === roomId)
+    if (!room) return
+    marketplace.hideConversation(room.id, "creator")
+    void hideConversationApi(room.campaignId, room.id).catch(() => undefined)
+    addActivity(`Conversation with ${room.brand} hidden.`, "amber")
+  }
+
+  function deleteCreatorMessage(messageId: number) {
+    const message = marketplace.messages.find((item) => item.id === messageId)
+    const room = collaborations.find((collab) => collab.id === message?.roomId)
+    if (!message || !room) return
+    marketplace.hideMessage(message.id, "creator")
+    void hideMessageApi(room.campaignId, room.id, message.id).catch(() => undefined)
   }
 
   return (
@@ -282,6 +327,8 @@ export default function CreatorDashboardOverview() {
           selectedRoomId={activeRoomId ?? selectedRoomId}
           message={creatorMessage}
           onMessageChange={setCreatorMessage}
+          onDeleteConversation={deleteCreatorConversation}
+          onDeleteMessage={deleteCreatorMessage}
           onRoomChange={setSelectedRoomId}
           onSend={sendCreatorMessage}
         />

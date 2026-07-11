@@ -16,6 +16,7 @@ from src.campaign.enums import CampaignStatus
 from src.campaign_proposal import crud
 from src.campaign_proposal.enums import ProposalStatus
 from src.campaign_proposal.schemas import ProposalCreate, ProposalPublic
+from src.conversations.routes import get_or_create_conversation
 
 # NOTE: adjust import path to your influencer profile model
 from src.influencer_profile.models import InfluencerProfile
@@ -128,7 +129,9 @@ async def accept_proposal(
     if proposal.status != ProposalStatus.PENDING:
         raise HTTPException(status_code=400, detail="Only pending proposals can be accepted")
 
-    return await crud.set_status(db, proposal, ProposalStatus.ACCEPTED)
+    accepted = await crud.set_status(db, proposal, ProposalStatus.ACCEPTED)
+    await get_or_create_conversation(db, campaign, proposal.influencer_profile_id)
+    return accepted
 
 
 @router.post("/{proposal_id}/reject", response_model=ProposalPublic)
