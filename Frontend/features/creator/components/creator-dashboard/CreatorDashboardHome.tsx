@@ -25,6 +25,7 @@ type CreatorDashboardHomeProps = {
   onApply: (id: number) => void
   onBrowseCampaigns: () => void
   onEditProfile: () => void
+  onMessageBrand: (campaignId: number, message: string) => void
   onSearch: (search: string) => void
   onSubmit: (id: number) => void
   onWithdraw: (id: number) => void
@@ -40,6 +41,7 @@ export function CreatorDashboardHome({
   onApply,
   onBrowseCampaigns,
   onEditProfile,
+  onMessageBrand,
   onSearch,
   onSubmit,
   onWithdraw,
@@ -97,7 +99,7 @@ export function CreatorDashboardHome({
         <ActivityPanel activities={activities} />
       </section>
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <CampaignsPanel campaigns={campaigns.slice(0, 3)} search={campaignSearch} onSearch={onSearch} onApply={onApply} onWithdraw={onWithdraw} compact />
+        <CampaignsPanel campaigns={campaigns.slice(0, 3)} search={campaignSearch} onSearch={onSearch} onApply={onApply} onMessageBrand={onMessageBrand} onWithdraw={onWithdraw} compact />
         <CollaborationsPanel collaborations={collaborations} onSubmit={onSubmit} />
       </section>
     </div>

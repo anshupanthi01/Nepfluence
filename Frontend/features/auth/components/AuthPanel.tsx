@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Building2, UserRound } from "lucide-react"
+import { ArrowRight, Building2, Eye, EyeOff, UserRound } from "lucide-react"
 import { FormEvent, useEffect, useState } from "react"
 import { login, nextRouteForSession, register } from "@/lib/auth"
 import type { AuthMode, UserRole } from "@/features/auth/types/auth.types"
@@ -45,6 +45,7 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [skipCompanyEmail, setSkipCompanyEmail] = useState(false)
   const [skipCompanyWebsite, setSkipCompanyWebsite] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -211,16 +212,26 @@ export default function AuthPanel({ mode, role }: AuthPanelProps) {
               <label className="text-sm font-bold text-[#505852]" htmlFor="password">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                required
-                minLength={8}
-                autoComplete={isRegister ? "new-password" : "current-password"}
-                className="mt-1.5 h-11 w-full rounded-[16px] border border-[#ded8cf] bg-white px-4 text-sm font-medium outline-none transition focus:border-[#1f252b] focus:ring-4 focus:ring-[#1f252b]/5"
-                placeholder="Enter your password"
-                type="password"
-              />
+              <div className="relative mt-1.5">
+                <input
+                  id="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  className="h-11 w-full rounded-[16px] border border-[#ded8cf] bg-white px-4 pr-12 text-sm font-medium outline-none transition focus:border-[#1f252b] focus:ring-4 focus:ring-[#1f252b]/5"
+                  placeholder="Enter your password"
+                  type={showPassword ? "text" : "password"}
+                />
+                <button
+                  className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-[#69716b] transition hover:bg-[#f5f1ea] hover:text-[#1f252b]"
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+                </button>
+              </div>
             </div>
 
             {isRegister && role === "brand" && (

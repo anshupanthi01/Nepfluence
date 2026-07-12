@@ -5,9 +5,11 @@ import { BadgeCheck, Camera, CheckCircle2, Edit3, Eye, FileText, Globe, Heart, K
 import { Button } from "@/components/ui/button"
 import { changePassword } from "@/features/account/api/accountApi"
 import { createMyCreatorProfile, updateMyCreatorProfile } from "@/features/creator-profile/api/creatorProfileApi"
+import { readMockSession } from "@/lib/auth"
 import { type CreatorWorkspaceProfile } from "../creator-dashboard.shared"
 
 const nicheOptions = ["beauty", "food", "travel", "lifestyle", "education", "fitness", "tech", "gaming", "other"]
+const socialPlatformOptions = ["Instagram", "Tiktok", "Youtube", "X", "Twitch", "Pinterest"]
 
 function initials(name: string) {
   return name
@@ -66,9 +68,12 @@ export function ProfilePanel({
 }) {
   const photoInputRef = useRef<HTMLInputElement>(null)
   const portfolioInputRef = useRef<HTMLInputElement>(null)
+  const profileDetailsRef = useRef<HTMLDivElement>(null)
+  const categorySelectRef = useRef<HTMLSelectElement>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const [socialConnectorOpen, setSocialConnectorOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [profileImagePreview, setProfileImagePreview] = useState("")
@@ -152,6 +157,73 @@ export function ProfilePanel({
     } finally {
       setIsSaving(false)
     }
+  }
+
+  function scrollToProfileDetails() {
+    profileDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }
+
+  function startProfileCompletion() {
+    setIsEditing(true)
+    setStatusMessage("Complete the profile details below, then save.")
+    window.setTimeout(scrollToProfileDetails, 0)
+  }
+
+  function startSocialConnection() {
+    setSocialConnectorOpen(true)
+    setStatusMessage("Choose the social accounts you want to show on your creator profile.")
+  }
+
+  function startCategoryEdit() {
+    setIsEditing(true)
+    setStatusMessage("Choose your content category, then save.")
+    window.setTimeout(() => {
+      scrollToProfileDetails()
+      categorySelectRef.current?.focus()
+    }, 0)
+  }
+
+  function updateSocialPlatforms(platforms: string[]) {
+    const session = readMockSession()
+    if (session?.userId) {
+      window.localStorage.setItem(`nepfluence-creator-socials:${session.userId}`, JSON.stringify(platforms))
+    }
+
+    onProfileChange({
+      ...creatorProfile,
+      connectedPlatforms: platforms,
+      analytics: creatorProfile.analytics.map((item) =>
+        item.label === "Accounts"
+          ? { ...item, value: platforms.length.toString(), detail: platforms.length ? "Connected" : "Connect socials" }
+          : platforms.length && item.detail === "Connect socials"
+            ? { ...item, detail: "Connected socials" }
+            : item,
+      ),
+    })
+    setStatusMessage(platforms.length ? "Social accounts connected locally." : "Social accounts cleared.")
+  }
+
+  function toggleSocialPlatform(platform: string) {
+    const currentPlatforms = creatorProfile.connectedPlatforms
+    const nextPlatforms = currentPlatforms.includes(platform)
+      ? currentPlatforms.filter((item) => item !== platform)
+      : [...currentPlatforms, platform]
+    updateSocialPlatforms(nextPlatforms)
+  }
+
+  function refreshProfileData() {
+    if (!creatorProfile.connectedPlatforms.length) {
+      startSocialConnection()
+      return
+    }
+
+    setStatusMessage("Profile data refreshed from connected social selections.")
+    onProfileChange({
+      ...creatorProfile,
+      analytics: creatorProfile.analytics.map((item) =>
+        item.label === "Accounts" ? { ...item, value: creatorProfile.connectedPlatforms.length.toString(), detail: "Connected" } : item,
+      ),
+    })
   }
 
   async function submitPasswordChange() {
@@ -296,9 +368,20 @@ export function ProfilePanel({
 
         <div className="space-y-5 p-5">
           <div className="flex flex-wrap gap-2">
-            {(profileTags.length ? profileTags : ["Complete your profile", "Connect social accounts"]).map((tag) => (
-              <span key={tag} className="rounded-full bg-[#f0ece5] px-3 py-1.5 text-xs font-black text-[#505852]">{tag}</span>
-            ))}
+            {profileTags.length ? (
+              profileTags.map((tag) => (
+                <span key={tag} className="rounded-full bg-[#f0ece5] px-3 py-1.5 text-xs font-black text-[#505852]">{tag}</span>
+              ))
+            ) : (
+              <>
+                <button className="rounded-full bg-[#1f252b] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#363d43]" type="button" onClick={startProfileCompletion}>
+                  Complete your profile
+                </button>
+                <button className="rounded-full bg-[#f0ece5] px-3 py-1.5 text-xs font-black text-[#505852] transition hover:bg-[#e3ddd4]" type="button" onClick={startSocialConnection}>
+                  Connect social accounts
+                </button>
+              </>
+            )}
           </div>
 
           {previewOpen && (
@@ -323,7 +406,7 @@ export function ProfilePanel({
           )}
 
           <section className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-            <div className="rounded-[24px] border border-[#e8e2d9] bg-white p-5">
+            <div ref={profileDetailsRef} className="rounded-[24px] border border-[#e8e2d9] bg-white p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Profile details</p>
@@ -337,7 +420,7 @@ export function ProfilePanel({
                 <Field disabled={!isEditing} label="Handle" value={form.handle} onChange={(value) => setForm((current) => ({ ...current, handle: value }))} />
                 <label className="text-xs font-black text-[#69716b]">
                   Category
-                  <select disabled={!isEditing} className="mt-2 h-10 w-full rounded-full border border-[#ded8cf] bg-[#fbfaf7] px-4 text-sm font-semibold text-[#505852] outline-none disabled:opacity-70 focus:border-[#1f252b]" value={normalizeNiche(form.niche)} onChange={(event) => setForm((current) => ({ ...current, niche: titleCase(event.target.value) }))}>
+                  <select ref={categorySelectRef} disabled={!isEditing} className="mt-2 h-10 w-full rounded-full border border-[#ded8cf] bg-[#fbfaf7] px-4 text-sm font-semibold text-[#505852] outline-none disabled:opacity-70 focus:border-[#1f252b]" value={normalizeNiche(form.niche)} onChange={(event) => setForm((current) => ({ ...current, niche: titleCase(event.target.value) }))}>
                     {nicheOptions.map((option) => (
                       <option key={option} value={option}>{titleCase(option)}</option>
                     ))}
@@ -372,12 +455,53 @@ export function ProfilePanel({
                 <SmallStat label="Status" value={creatorProfile.connectedPlatforms.length ? "Live" : "Draft"} />
               </div>
               <div className="mt-4 space-y-2 text-sm font-semibold text-[#505852]">
-                <Signal icon={Eye} text={creatorProfile.connectedPlatforms.length ? "Social metrics connected" : "Connect socials to unlock reach"} />
-                <Signal icon={Heart} text={creatorProfile.niche === "Profile not set" ? "Set your content category" : `${creatorProfile.niche} category`} />
-                <Signal icon={Star} text="Profile data updates after social connection" />
+                <Signal icon={Eye} text={creatorProfile.connectedPlatforms.length ? "Social metrics connected" : "Connect socials to unlock reach"} onClick={startSocialConnection} />
+                <Signal icon={Heart} text={creatorProfile.niche === "Profile not set" ? "Set your content category" : `${creatorProfile.niche} category`} onClick={startCategoryEdit} />
+                <Signal icon={Star} text="Profile data updates after social connection" onClick={refreshProfileData} />
               </div>
             </div>
           </section>
+
+          {socialConnectorOpen && (
+            <section className="rounded-[24px] border border-[#e8e2d9] bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Social accounts</p>
+                  <h3 className="mt-1 text-lg font-black tracking-tight text-[#1f252b]">Connect channels</h3>
+                </div>
+                <button className="grid size-9 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b]" type="button" aria-label="Close social connector" onClick={() => setSocialConnectorOpen(false)}>
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {socialPlatformOptions.map((platform) => {
+                  const connected = creatorProfile.connectedPlatforms.includes(platform)
+
+                  return (
+                    <button
+                      key={platform}
+                      className={`flex h-12 items-center justify-between rounded-[14px] border px-4 text-sm font-black transition ${
+                        connected ? "border-[#1f252b] bg-[#1f252b] text-white" : "border-[#ded8cf] bg-[#fbfaf7] text-[#505852] hover:border-[#1f252b]"
+                      }`}
+                      type="button"
+                      onClick={() => toggleSocialPlatform(platform)}
+                    >
+                      {platform}
+                      <span className={`rounded-full px-2 py-1 text-[10px] ${connected ? "bg-white/15 text-white" : "bg-white text-[#69716b]"}`}>{connected ? "Connected" : "Connect"}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button className="h-9 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#363d43]" type="button" onClick={() => setSocialConnectorOpen(false)}>
+                  Done
+                </Button>
+                <Button className="h-9 rounded-full border-[#ded8cf] px-4 text-xs font-black text-[#505852]" variant="outline" type="button" onClick={() => updateSocialPlatforms([])}>
+                  Clear socials
+                </Button>
+              </div>
+            </section>
+          )}
 
           {passwordOpen && (
             <section className="rounded-[24px] border border-[#e8e2d9] bg-white p-5">
@@ -503,12 +627,12 @@ function SmallStat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Signal({ icon: Icon, text }: { icon: typeof Eye; text: string }) {
+function Signal({ icon: Icon, onClick, text }: { icon: typeof Eye; onClick: () => void; text: string }) {
   return (
-    <p className="flex items-center gap-2 rounded-[16px] bg-[#f5f3ef] p-3">
+    <button className="flex w-full items-center gap-2 rounded-[16px] bg-[#f5f3ef] p-3 text-left transition hover:bg-[#e8e2d9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f252b]" type="button" onClick={onClick}>
       <Icon className="size-4 text-[#8a8175]" aria-hidden="true" />
       {text}
-    </p>
+    </button>
   )
 }
 

@@ -1,9 +1,10 @@
 "use client"
 
 import { ClipboardList, Megaphone, ShieldCheck, UsersRound } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { apiClient } from "@/lib/api-client"
-import { hideConversation as hideConversationApi, hideMessage as hideMessageApi } from "@/features/conversations/api/conversationApi"
+import { hideConversation as hideConversationApi } from "@/features/conversations/api/conversationApi"
 import {
   MarketplaceCampaign as Campaign,
   ApplicationStatus,
@@ -29,6 +30,22 @@ import { type Activity, type Creator, type Section, emptyCampaignForm, navItems 
 
 const startSectionKey = "nepfluence-brand-start-section"
 const brandSectionKey = "nepfluence-brand-active-section"
+
+const brandSectionPaths: Record<Section, string> = {
+  Dashboard: "/dashboard",
+  Campaigns: "/campaigns",
+  Applications: "/applications",
+  Collaborations: "/collaborations",
+  Messages: "/messages",
+  "Discover Creators": "/discover-creators",
+  Payments: "/payments",
+  "Brand Profile": "/brand-profile",
+  "Trust & Reports": "/trust-reports",
+}
+
+const brandPathSections = Object.fromEntries(
+  Object.entries(brandSectionPaths).map(([section, path]) => [path, section as Section]),
+) as Record<string, Section>
 
 type CreatorDirectoryProfile = {
   id: number
@@ -77,6 +94,9 @@ function titleFromEmail(email?: string) {
 function readBrandSection(): Section {
   if (typeof window === "undefined") return "Discover Creators"
 
+  const pathSection = brandPathSections[window.location.pathname]
+  if (pathSection) return pathSection
+
   const startSection = window.localStorage.getItem(startSectionKey) as Section | null
   if (startSection && navItems.some((item) => item.label === startSection)) {
     window.localStorage.removeItem(startSectionKey)
@@ -88,6 +108,8 @@ function readBrandSection(): Section {
 }
 
 export default function BrandDashboardOverview() {
+  const pathname = usePathname()
+  const router = useRouter()
   const marketplace = useMarketplaceStore()
   const session = readMockSession()
   const currentBrandName = session?.username || titleFromEmail(session?.email)
@@ -105,6 +127,7 @@ export default function BrandDashboardOverview() {
   const [selectedRoomId, setSelectedRoomId] = useState(1)
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null)
   const [form, setForm] = useState(emptyCampaignForm)
+  const currentSection = brandPathSections[pathname] ?? activeSection
   const campaigns = useMemo(
     () =>
       marketplace.campaigns.filter((campaign) =>
@@ -129,8 +152,8 @@ export default function BrandDashboardOverview() {
   const [activities, setActivities] = useState<Activity[]>([])
 
   useEffect(() => {
-    window.localStorage.setItem(brandSectionKey, activeSection)
-  }, [activeSection])
+    window.localStorage.setItem(brandSectionKey, currentSection)
+  }, [currentSection])
 
   useEffect(() => {
     let cancelled = false
@@ -218,7 +241,7 @@ export default function BrandDashboardOverview() {
     marketplace.createCampaign(nextCampaign)
     setForm(emptyCampaignForm)
     setCampaignModalOpen(false)
-    setActiveSection("Campaigns")
+    goTo("Campaigns")
     addActivity(`${nextCampaign.title} created as DRAFT.`, "blue")
   }
 
@@ -245,7 +268,7 @@ export default function BrandDashboardOverview() {
 
     if (status === "ACCEPTED") {
       addActivity(`${application.creator} accepted. Escrow deposit is now required.`, "amber")
-      setActiveSection("Collaborations")
+      goTo("Collaborations")
     } else {
       addActivity(`${application.creator} rejected and notified.`, "red")
     }
@@ -268,17 +291,19 @@ export default function BrandDashboardOverview() {
 
   function goTo(section: Section) {
     setActiveSection(section)
+    const path = brandSectionPaths[section]
+    if (path && path !== pathname) router.push(path)
     setMobileMenuOpen(false)
   }
 
   function viewManagedCampaignApplications() {
     setManagedCampaignId(null)
-    setActiveSection("Applications")
+    goTo("Applications")
   }
 
   function viewManagedCampaignCollaborations() {
     setManagedCampaignId(null)
-    setActiveSection("Collaborations")
+    goTo("Collaborations")
   }
 
   function sendBrandMessage() {
@@ -307,17 +332,15 @@ export default function BrandDashboardOverview() {
     addActivity(`Conversation with ${room.creator} hidden.`, "amber")
   }
 
-  function deleteBrandMessage(messageId: number) {
-    const message = marketplace.messages.find((item) => item.id === messageId)
-    const room = collaborations.find((collab) => collab.id === message?.roomId)
-    if (!message || !room) return
-    marketplace.hideMessage(message.id, "brand")
-    void hideMessageApi(room.campaignId, room.id, message.id).catch(() => undefined)
+  function deleteBrandMessages(messageIds: number[]) {
+    if (!messageIds.length) return
+    marketplace.deleteMessages(messageIds)
+    addActivity(`${messageIds.length} message${messageIds.length === 1 ? "" : "s"} permanently deleted.`, "amber")
   }
 
   return (
     <BrandDashboardShell
-      activeSection={activeSection}
+      activeSection={currentSection}
       mobileMenuOpen={mobileMenuOpen}
       onCloseMobileMenu={() => setMobileMenuOpen(false)}
       onNavigate={goTo}
@@ -327,28 +350,28 @@ export default function BrandDashboardOverview() {
       onOpenNotifications={() => setNotificationOpen((open) => !open)}
       onOpenSupport={() => setChatOpen(true)}
     >
-      {activeSection === "Dashboard" && (
+      {currentSection === "Dashboard" && (
         <BrandDashboardHome
           activities={activities}
           analytics={analytics}
           campaigns={campaigns}
           pendingApplications={pendingApplications}
           onCreateCampaign={() => setCampaignModalOpen(true)}
-          onDiscoverCreators={() => setActiveSection("Discover Creators")}
+          onDiscoverCreators={() => goTo("Discover Creators")}
           onManageCampaign={openCampaignManager}
           onPublishCampaign={publishCampaign}
           onReviewApplication={reviewApplication}
         />
       )}
 
-      {activeSection === "Campaigns" && (
+      {currentSection === "Campaigns" && (
         <CampaignList campaigns={campaigns} onPublish={publishCampaign} onCreate={() => setCampaignModalOpen(true)} onManage={openCampaignManager} />
       )}
 
-      {activeSection === "Applications" && <ApplicationQueue applications={applications} campaigns={campaigns} onReview={reviewApplication} showResolved />}
-      {activeSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
+      {currentSection === "Applications" && <ApplicationQueue applications={applications} campaigns={campaigns} onReview={reviewApplication} showResolved />}
+      {currentSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
 
-      {activeSection === "Messages" && (
+      {currentSection === "Messages" && (
         <MessagesPanel
           collaborations={collaborations}
           messages={marketplace.messages}
@@ -356,13 +379,13 @@ export default function BrandDashboardOverview() {
           message={brandMessage}
           onMessageChange={setBrandMessage}
           onDeleteConversation={deleteBrandConversation}
-          onDeleteMessage={deleteBrandMessage}
+          onDeleteMessages={deleteBrandMessages}
           onRoomChange={setSelectedRoomId}
           onSend={sendBrandMessage}
         />
       )}
 
-      {activeSection === "Discover Creators" && (
+      {currentSection === "Discover Creators" && (
         <DiscoverPanel
           creators={filteredCreators}
           discoveryDecisions={marketplace.discoveryDecisions}
@@ -377,9 +400,9 @@ export default function BrandDashboardOverview() {
         />
       )}
 
-      {activeSection === "Payments" && <PaymentsPanel collaborations={collaborations} paymentTotal={paymentTotal} wallet={brandWallet} ledger={brandLedger} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
-      {activeSection === "Brand Profile" && <BrandProfilePanel campaigns={campaigns} collaborations={collaborations} />}
-      {activeSection === "Trust & Reports" && <TrustPanel collaborations={collaborations} />}
+      {currentSection === "Payments" && <PaymentsPanel collaborations={collaborations} paymentTotal={paymentTotal} wallet={brandWallet} ledger={brandLedger} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
+      {currentSection === "Brand Profile" && <BrandProfilePanel campaigns={campaigns} collaborations={collaborations} />}
+      {currentSection === "Trust & Reports" && <TrustPanel collaborations={collaborations} />}
 
       {notificationOpen && <NotificationPanel activities={activities} onClose={() => setNotificationOpen(false)} />}
       {campaignModalOpen && <CampaignFormModal form={form} onChange={setForm} onClose={() => setCampaignModalOpen(false)} onSubmit={submitCampaign} />}

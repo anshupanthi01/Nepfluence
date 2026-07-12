@@ -1,6 +1,7 @@
 "use client"
 
-import { Send, Trash2 } from "lucide-react"
+import { Send, Trash2, X } from "lucide-react"
+import { useState } from "react"
 import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
 import { type Collaboration } from "../creator-dashboard.shared"
 
@@ -11,7 +12,7 @@ export function MessagesPanel({
   message,
   onMessageChange,
   onDeleteConversation,
-  onDeleteMessage,
+  onDeleteMessages,
   onRoomChange,
   onSend,
 }: {
@@ -21,28 +22,67 @@ export function MessagesPanel({
   message: string
   onMessageChange: (message: string) => void
   onDeleteConversation: (roomId: number) => void
-  onDeleteMessage: (messageId: number) => void
+  onDeleteMessages: (messageIds: number[]) => void
   onRoomChange: (roomId: number) => void
   onSend: () => void
 }) {
+  const [selectedMessageIds, setSelectedMessageIds] = useState<number[]>([])
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([])
+
+  function creatorThreadKey(collab: Collaboration) {
+    return `${collab.campaignId}:${collab.brandUserId ?? collab.brand}:${collab.creatorUserId ?? collab.creatorHandle ?? collab.creator}`
+  }
+
   const directThreads = collaborations.filter((collab, index, list) => {
-    const threadKey = `${collab.campaignId}:${collab.brandUserId ?? collab.brand}`
-    return list.findIndex((item) => `${item.campaignId}:${item.brandUserId ?? item.brand}` === threadKey) === index
+    const threadKey = creatorThreadKey(collab)
+    return list.findIndex((item) => creatorThreadKey(item) === threadKey) === index
   })
   const activeRoom = directThreads.find((collab) => collab.id === selectedRoomId) ?? directThreads[0]
-  const activeThreadKey = activeRoom ? `${activeRoom.campaignId}:${activeRoom.brandUserId ?? activeRoom.brand}` : null
+  const activeThreadKey = activeRoom ? creatorThreadKey(activeRoom) : null
   const activeThreadRoomIds = new Set(
     collaborations
-      .filter((collab) => `${collab.campaignId}:${collab.brandUserId ?? collab.brand}` === activeThreadKey)
+      .filter((collab) => creatorThreadKey(collab) === activeThreadKey)
       .map((collab) => collab.id),
   )
   const roomMessages = messages.filter((item) => {
     if (item.deletedForCreatorAt) return false
-    if (activeRoom && item.campaignId && (item.brandUserId || activeRoom.brandUserId)) {
-      return item.campaignId === activeRoom.campaignId && (item.brandUserId ?? activeRoom.brandUserId) === activeRoom.brandUserId
+    if (activeRoom && item.campaignId && (item.brandUserId || activeRoom.brandUserId) && (item.creatorUserId || activeRoom.creatorUserId)) {
+      return (
+        item.campaignId === activeRoom.campaignId &&
+        (item.brandUserId ?? activeRoom.brandUserId) === activeRoom.brandUserId &&
+        (item.creatorUserId ?? activeRoom.creatorUserId) === activeRoom.creatorUserId
+      )
     }
     return activeThreadRoomIds.has(item.roomId)
   })
+  const selectedInRoom = selectedMessageIds.filter((id) => roomMessages.some((item) => item.id === id))
+  const allSelected = roomMessages.length > 0 && selectedInRoom.length === roomMessages.length
+
+  function toggleMessageSelection(messageId: number) {
+    setSelectedMessageIds((current) =>
+      current.includes(messageId) ? current.filter((id) => id !== messageId) : [...current, messageId],
+    )
+  }
+
+  function toggleAllMessages() {
+    setSelectedMessageIds((current) => {
+      const roomIds = roomMessages.map((item) => item.id)
+      if (roomIds.every((id) => current.includes(id))) {
+        return current.filter((id) => !roomIds.includes(id))
+      }
+      return Array.from(new Set([...current, ...roomIds]))
+    })
+  }
+
+  function confirmDelete(messageIds: number[]) {
+    setPendingDeleteIds(messageIds)
+  }
+
+  function deletePendingMessages() {
+    onDeleteMessages(pendingDeleteIds)
+    setSelectedMessageIds((current) => current.filter((id) => !pendingDeleteIds.includes(id)))
+    setPendingDeleteIds([])
+  }
 
   return (
     <section className="grid min-h-[calc(100vh-112px)] gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -94,14 +134,30 @@ export function MessagesPanel({
             )}
           </div>
           <p className="mt-1 text-sm font-semibold text-[#69716b]">{activeRoom?.escrow === "HELD" ? "Escrow is held, so chat and deliverables are open." : "Chat unlocks when escrow is deposited."}</p>
+          {roomMessages.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button className="h-8 rounded-full border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#505852]" type="button" onClick={toggleAllMessages}>
+                {allSelected ? "Clear selection" : "Select all"}
+              </button>
+              {selectedInRoom.length > 0 && (
+                <button className="inline-flex h-8 items-center gap-2 rounded-full bg-[#9f1d1d] px-3 text-xs font-black text-white" type="button" onClick={() => confirmDelete(selectedInRoom)}>
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                  Delete selected ({selectedInRoom.length})
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="min-h-[360px] flex-1 space-y-3 overflow-y-auto p-5">
           {roomMessages.map((item) => (
             <div key={item.id} className={item.sender === "creator" ? "ml-auto max-w-md" : "max-w-md"}>
               <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">{item.senderName}</p>
-                <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => onDeleteMessage(item.id)}>
+                <label className="flex min-w-0 items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">
+                  <input className="size-4 accent-[#1f252b]" type="checkbox" checked={selectedMessageIds.includes(item.id)} onChange={() => toggleMessageSelection(item.id)} />
+                  <span className="truncate">{item.senderName}</span>
+                </label>
+                <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => confirmDelete([item.id])}>
                   <Trash2 className="size-3.5" aria-hidden="true" />
                 </button>
               </div>
@@ -135,6 +191,26 @@ export function MessagesPanel({
           </div>
         </div>
       </div>
+      {pendingDeleteIds.length > 0 && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/35 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_24px_80px_rgba(31,37,43,0.2)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Confirm delete</p>
+                <h3 className="mt-1 text-lg font-black text-[#1f252b]">Delete {pendingDeleteIds.length} message{pendingDeleteIds.length === 1 ? "" : "s"} permanently?</h3>
+              </div>
+              <button className="grid size-8 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b]" type="button" aria-label="Cancel delete" onClick={() => setPendingDeleteIds([])}>
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#69716b]">This removes the selected message{pendingDeleteIds.length === 1 ? "" : "s"} from this conversation for both sides.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="h-9 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#505852]" type="button" onClick={() => setPendingDeleteIds([])}>Cancel</button>
+              <button className="h-9 rounded-full bg-[#9f1d1d] px-4 text-xs font-black text-white" type="button" onClick={deletePendingMessages}>Delete permanently</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

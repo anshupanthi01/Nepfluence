@@ -1,9 +1,10 @@
 "use client"
 
 import { BriefcaseBusiness, CheckCircle2, Clock3, ShieldCheck } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { getMyCreatorProfile } from "@/features/creator-profile/api/creatorProfileApi"
-import { hideConversation as hideConversationApi, hideMessage as hideMessageApi } from "@/features/conversations/api/conversationApi"
+import { hideConversation as hideConversationApi } from "@/features/conversations/api/conversationApi"
 import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
 import { readMockSession } from "@/lib/auth"
 import {
@@ -30,6 +31,20 @@ import {
 } from "./creator-dashboard.shared"
 
 const creatorSectionKey = "nepfluence-creator-active-section"
+
+const creatorSectionPaths: Record<Section, string> = {
+  Dashboard: "/creator/dashboard",
+  "Find Campaigns": "/creator/campaigns",
+  Applications: "/creator/applications",
+  Collaborations: "/creator/collaborations",
+  Messages: "/creator/messages",
+  Payouts: "/creator/payouts",
+  Profile: "/creator/profile",
+}
+
+const creatorPathSections = Object.fromEntries(
+  Object.entries(creatorSectionPaths).map(([section, path]) => [path, section as Section]),
+) as Record<string, Section>
 
 function titleFromEmail(email?: string) {
   const base = email?.split("@")[0] || "Creator"
@@ -60,6 +75,8 @@ function readConnectedPlatforms(userId?: string) {
 
 function readCreatorSection(): Section {
   if (typeof window === "undefined") return "Profile"
+  const pathSection = creatorPathSections[window.location.pathname]
+  if (pathSection) return pathSection
   const storedSection = window.localStorage.getItem(creatorSectionKey) as Section | null
   return storedSection && navItems.some((item) => item.label === storedSection) ? storedSection : "Profile"
 }
@@ -88,6 +105,8 @@ function emptyCreatorProfile(session?: ReturnType<typeof readMockSession>): Crea
 }
 
 export default function CreatorDashboardOverview() {
+  const pathname = usePathname()
+  const router = useRouter()
   const marketplace = useMarketplaceStore()
   const [activeSection, setActiveSection] = useState<Section>(() => readCreatorSection())
   const session = readMockSession()
@@ -100,10 +119,11 @@ export default function CreatorDashboardOverview() {
   const [submissionForm, setSubmissionForm] = useState(emptySubmissionForm)
   const [creatorProfile, setCreatorProfile] = useState<CreatorWorkspaceProfile>(() => emptyCreatorProfile(session))
   const [activities, setActivities] = useState<Activity[]>([])
+  const currentSection = creatorPathSections[pathname] ?? activeSection
 
   useEffect(() => {
-    window.localStorage.setItem(creatorSectionKey, activeSection)
-  }, [activeSection])
+    window.localStorage.setItem(creatorSectionKey, currentSection)
+  }, [currentSection])
 
   useEffect(() => {
     let cancelled = false
@@ -177,10 +197,12 @@ export default function CreatorDashboardOverview() {
       }
     })
 
-  const collaborations = marketplace.collaborations.filter((collab) =>
-    (collab.creatorUserId ? collab.creatorUserId === session?.userId : collab.creator === creatorProfile.creator) &&
-    !collab.hiddenForCreatorAt,
-  )
+  const collaborations = marketplace.collaborations.filter((collab) => {
+    if (collab.hiddenForCreatorAt) return false
+    if (collab.creatorUserId && session?.userId) return collab.creatorUserId === session.userId
+    if (collab.creatorHandle) return collab.creatorHandle === creatorProfile.handle
+    return collab.creator === creatorProfile.creator
+  })
   const activeRoomId = collaborations.some((collab) => collab.id === selectedRoomId) ? selectedRoomId : collaborations[0]?.id
   const creatorWallet = marketplace.getWallet(session?.userId, "creator")
   const creatorLedger = marketplace.ledger.filter((entry) => collaborations.some((collab) => collab.id === entry.collaborationId))
@@ -213,7 +235,7 @@ export default function CreatorDashboardOverview() {
   function applyToCampaign(id: number) {
     const campaign = campaigns.find((item) => item.id === id)
     marketplace.applyToCampaign(id, { ...creatorProfile, match: campaign?.match })
-    setActiveSection("Applications")
+    goTo("Applications")
     addActivity(`Application sent to ${campaign?.brand ?? "brand"}.`, "blue")
   }
 
@@ -221,6 +243,13 @@ export default function CreatorDashboardOverview() {
     const campaign = campaigns.find((item) => item.id === id)
     marketplace.withdrawApplication(id, creatorProfile.handle)
     addActivity(`Application withdrawn from ${campaign?.brand ?? "brand"}.`, "amber")
+  }
+
+  function messageBrandAboutCampaign(campaignId: number, message: string) {
+    const campaign = campaigns.find((item) => item.id === campaignId)
+    marketplace.messageBrandAboutCampaign(campaignId, creatorProfile, message)
+    goTo("Messages")
+    addActivity(`Message sent to ${campaign?.brand ?? "brand"} about ${campaign?.title ?? "campaign"}.`, "blue")
   }
 
   function submitDeliverable(id: number) {
@@ -253,6 +282,8 @@ export default function CreatorDashboardOverview() {
 
   function goTo(section: Section) {
     setActiveSection(section)
+    const path = creatorSectionPaths[section]
+    if (path && path !== pathname) router.push(path)
     setMobileMenuOpen(false)
   }
 
@@ -282,25 +313,23 @@ export default function CreatorDashboardOverview() {
     addActivity(`Conversation with ${room.brand} hidden.`, "amber")
   }
 
-  function deleteCreatorMessage(messageId: number) {
-    const message = marketplace.messages.find((item) => item.id === messageId)
-    const room = collaborations.find((collab) => collab.id === message?.roomId)
-    if (!message || !room) return
-    marketplace.hideMessage(message.id, "creator")
-    void hideMessageApi(room.campaignId, room.id, message.id).catch(() => undefined)
+  function deleteCreatorMessages(messageIds: number[]) {
+    if (!messageIds.length) return
+    marketplace.deleteMessages(messageIds)
+    addActivity(`${messageIds.length} message${messageIds.length === 1 ? "" : "s"} permanently deleted.`, "amber")
   }
 
   return (
     <CreatorDashboardShell
-      activeSection={activeSection}
+      activeSection={currentSection}
       mobileMenuOpen={mobileMenuOpen}
       onCloseMobileMenu={() => setMobileMenuOpen(false)}
-      onFindCampaigns={() => setActiveSection("Find Campaigns")}
+      onFindCampaigns={() => goTo("Find Campaigns")}
       onNavigate={goTo}
       onOpenMobileMenu={() => setMobileMenuOpen(true)}
       onOpenNotifications={() => setNotificationOpen((open) => !open)}
     >
-      {activeSection === "Dashboard" && (
+      {currentSection === "Dashboard" && (
         <CreatorDashboardHome
           activities={activities}
           campaigns={filteredCampaigns}
@@ -309,18 +338,28 @@ export default function CreatorDashboardOverview() {
           creatorProfile={creatorProfile}
           stats={stats}
           onApply={applyToCampaign}
-          onBrowseCampaigns={() => setActiveSection("Find Campaigns")}
-          onEditProfile={() => setActiveSection("Profile")}
+          onBrowseCampaigns={() => goTo("Find Campaigns")}
+          onEditProfile={() => goTo("Profile")}
+          onMessageBrand={messageBrandAboutCampaign}
           onSearch={setCampaignSearch}
           onSubmit={submitDeliverable}
           onWithdraw={withdrawApplication}
         />
       )}
 
-      {activeSection === "Find Campaigns" && <CampaignsPanel campaigns={filteredCampaigns} search={campaignSearch} onSearch={setCampaignSearch} onApply={applyToCampaign} onWithdraw={withdrawApplication} />}
-      {activeSection === "Applications" && <ApplicationsPanel campaigns={campaigns} onWithdraw={withdrawApplication} />}
-      {activeSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onSubmit={submitDeliverable} />}
-      {activeSection === "Messages" && (
+      {currentSection === "Find Campaigns" && (
+        <CampaignsPanel
+          campaigns={filteredCampaigns}
+          search={campaignSearch}
+          onSearch={setCampaignSearch}
+          onApply={applyToCampaign}
+          onMessageBrand={messageBrandAboutCampaign}
+          onWithdraw={withdrawApplication}
+        />
+      )}
+      {currentSection === "Applications" && <ApplicationsPanel campaigns={campaigns} onWithdraw={withdrawApplication} />}
+      {currentSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onSubmit={submitDeliverable} />}
+      {currentSection === "Messages" && (
         <MessagesPanel
           collaborations={collaborations}
           messages={marketplace.messages}
@@ -328,13 +367,13 @@ export default function CreatorDashboardOverview() {
           message={creatorMessage}
           onMessageChange={setCreatorMessage}
           onDeleteConversation={deleteCreatorConversation}
-          onDeleteMessage={deleteCreatorMessage}
+          onDeleteMessages={deleteCreatorMessages}
           onRoomChange={setSelectedRoomId}
           onSend={sendCreatorMessage}
         />
       )}
-      {activeSection === "Payouts" && <PayoutsPanel collaborations={collaborations} wallet={creatorWallet} ledger={creatorLedger} onSubmit={submitDeliverable} />}
-      {activeSection === "Profile" && <ProfilePanel creatorProfile={creatorProfile} onProfileChange={setCreatorProfile} />}
+      {currentSection === "Payouts" && <PayoutsPanel collaborations={collaborations} wallet={creatorWallet} ledger={creatorLedger} onSubmit={submitDeliverable} />}
+      {currentSection === "Profile" && <ProfilePanel creatorProfile={creatorProfile} onProfileChange={setCreatorProfile} />}
 
       {notificationOpen && <NotificationPanel activities={activities} onClose={() => setNotificationOpen(false)} />}
       {submissionCollab && (

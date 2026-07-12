@@ -248,8 +248,8 @@ async def hide_conversation(
     return await _conversation_public(db, conversation, current_user)
 
 
-@router.delete("/{conversation_id}/messages/{message_id}", response_model=MessagePublic)
-async def hide_message(
+@router.delete("/{conversation_id}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_message(
     campaign_id: int,
     conversation_id: int,
     message_id: int,
@@ -267,12 +267,6 @@ async def hide_message(
     if not message:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
 
-    now = datetime.now(UTC)
-    if message.sender_user_id == current_user.id:
-        message.deleted_for_sender_at = now
-    else:
-        message.deleted_for_recipient_at = now
-
+    await db.delete(message)
     await db.commit()
-    await db.refresh(message)
-    return await _message_public(db, message)
+    return None

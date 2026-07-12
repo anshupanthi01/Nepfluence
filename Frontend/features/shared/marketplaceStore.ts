@@ -58,6 +58,7 @@ export type MarketplaceCollaboration = {
   id: number
   brandUserId?: string
   creatorUserId?: string
+  creatorHandle?: string
   campaign: string
   campaignId: number
   brand: string
@@ -265,6 +266,7 @@ function normalizeState(state: MarketplaceState): MarketplaceState {
         ...collab,
         brandUserId: collab.brandUserId ?? campaign?.brandUserId,
         creatorUserId: collab.creatorUserId,
+        creatorHandle: collab.creatorHandle,
         campaignId: collab.campaignId ?? campaign?.id ?? collab.id,
         brand: collab.brand ?? campaign?.brand ?? "Brand",
         creator: collab.creator,
@@ -489,6 +491,7 @@ export function useMarketplaceStore() {
                     id: Date.now(),
                     brandUserId: campaign.brandUserId,
                     creatorUserId: application.creatorUserId,
+                    creatorHandle: application.handle,
                     campaign: campaign.title,
                     campaignId: campaign.id,
                     brand: campaign.brand,
@@ -498,9 +501,27 @@ export function useMarketplaceStore() {
                     deliverable: "Escrow required before chat unlocks",
                     payout: Math.min(campaign.budget, Math.max(15000, Math.round(campaign.budget * 0.38))),
                   },
-                  ...current.collaborations.filter((item) => item.campaignId !== campaign.id),
+                  ...current.collaborations.filter((item) =>
+                    !(
+                      item.campaignId === campaign.id &&
+                      (item.creatorUserId
+                        ? item.creatorUserId === application.creatorUserId
+                        : item.creatorHandle
+                          ? item.creatorHandle === application.handle
+                          : item.creator === application.creator)
+                    ),
+                  ),
                 ]
-              : current.collaborations.filter((item) => item.campaignId !== application?.campaignId || item.creator !== application?.creator),
+              : current.collaborations.filter((item) =>
+                  item.campaignId !== application?.campaignId ||
+                  !(
+                    item.creatorUserId
+                      ? item.creatorUserId === application?.creatorUserId
+                      : item.creatorHandle
+                        ? item.creatorHandle === application?.handle
+                        : item.creator === application?.creator
+                  ),
+                ),
           messages: current.messages,
         }
       })
@@ -631,6 +652,71 @@ export function useMarketplaceStore() {
         ],
       }))
     },
+    messageBrandAboutCampaign(campaignId: number, creator: CreatorProfile, body: string) {
+      const session = readMockSession()
+      const trimmedBody = body.trim()
+      if (!trimmedBody) return
+
+      commit((current) => {
+        const campaign = current.campaigns.find((item) => item.id === campaignId)
+        if (!campaign) return current
+
+        const timestamp = Date.now()
+        const existingCollaboration = current.collaborations.find((collab) =>
+          collab.campaignId === campaignId &&
+          (collab.creatorUserId
+            ? collab.creatorUserId === session?.userId
+            : collab.creatorHandle
+              ? collab.creatorHandle === creator.handle
+              : collab.creator === creator.creator),
+        )
+        const roomId = existingCollaboration?.id ?? timestamp
+        const collaboration: MarketplaceCollaboration = existingCollaboration
+          ? {
+              ...existingCollaboration,
+              brandUserId: existingCollaboration.brandUserId ?? campaign.brandUserId,
+              creatorUserId: existingCollaboration.creatorUserId ?? session?.userId,
+              creatorHandle: existingCollaboration.creatorHandle ?? creator.handle,
+              hiddenForBrandAt: undefined,
+              hiddenForCreatorAt: undefined,
+            }
+          : {
+              id: roomId,
+              brandUserId: campaign.brandUserId,
+              creatorUserId: session?.userId,
+              creatorHandle: creator.handle,
+              campaign: campaign.title,
+              campaignId: campaign.id,
+              brand: campaign.brand,
+              creator: creator.creator,
+              state: "ESCROW_PENDING",
+              escrow: "PENDING",
+              deliverable: "Creator started a conversation from campaign discovery.",
+              payout: Math.min(campaign.budget, Math.max(15000, Math.round(campaign.budget * 0.38))),
+            }
+
+        return {
+          ...current,
+          collaborations: existingCollaboration
+            ? current.collaborations.map((collab) => (collab.id === existingCollaboration.id ? collaboration : collab))
+            : [collaboration, ...current.collaborations],
+          messages: [
+            ...current.messages,
+            {
+              id: timestamp * 1000 + current.messages.length,
+              roomId,
+              campaignId,
+              brandUserId: campaign.brandUserId,
+              creatorUserId: session?.userId,
+              sender: "creator",
+              senderName: creator.creator,
+              body: trimmedBody,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }
+      })
+    },
     hideConversation(roomId: number, role: "brand" | "creator") {
       commit((current) => ({
         ...current,
@@ -645,18 +731,11 @@ export function useMarketplaceStore() {
         ),
       }))
     },
-    hideMessage(messageId: number, role: "brand" | "creator") {
+    deleteMessages(messageIds: number[]) {
+      const ids = new Set(messageIds)
       commit((current) => ({
         ...current,
-        messages: current.messages.map((message) =>
-          message.id === messageId
-            ? {
-                ...message,
-                deletedForBrandAt: role === "brand" ? new Date().toISOString() : message.deletedForBrandAt,
-                deletedForCreatorAt: role === "creator" ? new Date().toISOString() : message.deletedForCreatorAt,
-              }
-            : message,
-        ),
+        messages: current.messages.filter((message) => !ids.has(message.id)),
       }))
     },
     decideCreatorDiscovery(creator: Pick<CreatorDiscoveryDecision, "creator" | "handle">, status: CreatorDiscoveryDecision["status"]) {
