@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.campaign.models import Campaign
 from src.campaign.schemas import CampaignCreate, CampaignUpdate
 
 
 async def get_campaign_by_id(db: AsyncSession, campaign_id: int) -> Campaign | None:
-    result = await db.execute(select(Campaign).where(Campaign.id == campaign_id))
+    result = await db.execute(
+        select(Campaign).where(Campaign.id == campaign_id).options(selectinload(Campaign.brand_profile))
+    )
     return result.scalars().first()
 
 
@@ -21,6 +24,7 @@ async def get_campaigns_for_brand_profile(
     result = await db.execute(
         select(Campaign)
         .where(Campaign.brand_profile_id == brand_profile_id)
+        .options(selectinload(Campaign.brand_profile))
         .order_by(Campaign.date_posted.desc())
         .offset(skip)
         .limit(limit)
@@ -39,6 +43,7 @@ async def get_published_campaigns(
     result = await db.execute(
         select(Campaign)
         .where(Campaign.status == CampaignStatus.PUBLISHED)
+        .options(selectinload(Campaign.brand_profile))
         .order_by(Campaign.date_posted.desc())
         .offset(skip)
         .limit(limit)
@@ -57,12 +62,15 @@ async def create_campaign(
         description=data.description,
         budget_min=data.budget_min,
         budget_max=data.budget_max,
+        niche=data.niche,
+        country=data.country,
+        platform=data.platform,
+        deadline=data.deadline,
         # status + date_posted handled by defaults
     )
     db.add(campaign)
     await db.commit()
-    await db.refresh(campaign)
-    return campaign
+    return await get_campaign_by_id(db, campaign.id)
 
 
 async def update_campaign(
@@ -75,8 +83,7 @@ async def update_campaign(
         setattr(campaign, k, v)
 
     await db.commit()
-    await db.refresh(campaign)
-    return campaign
+    return await get_campaign_by_id(db, campaign.id)
 
 
 async def delete_campaign(db: AsyncSession, campaign: Campaign) -> None:

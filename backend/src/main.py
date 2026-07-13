@@ -17,6 +17,7 @@ from src.integrations.youtube.routes import router as youtube_router
 from src.marketplace.routes import router as marketplace_router
 from src.contact.routes import router as contact_router
 from src.conversations.routes import router as conversations_router
+from src.collaboration.routes import router as collaboration_router
 
 
 async def ensure_sqlite_schema(conn) -> None:
@@ -30,6 +31,18 @@ async def ensure_sqlite_schema(conn) -> None:
         await conn.execute(
             text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)")
         )
+
+    result = await conn.execute(text("PRAGMA table_info(campaigns)"))
+    campaign_columns = {row[1] for row in result.fetchall()}
+    if "niche" not in campaign_columns:
+        await conn.execute(text("ALTER TABLE campaigns ADD COLUMN niche VARCHAR(50)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_campaigns_niche ON campaigns (niche)"))
+    if "country" not in campaign_columns:
+        await conn.execute(text("ALTER TABLE campaigns ADD COLUMN country VARCHAR(2)"))
+    if "platform" not in campaign_columns:
+        await conn.execute(text("ALTER TABLE campaigns ADD COLUMN platform VARCHAR(50)"))
+    if "deadline" not in campaign_columns:
+        await conn.execute(text("ALTER TABLE campaigns ADD COLUMN deadline DATE"))
     await conn.execute(
         text(
             """
@@ -130,6 +143,7 @@ app.include_router(youtube_router)  # ✅ moved here
 app.include_router(marketplace_router)
 app.include_router(contact_router)
 app.include_router(conversations_router)
+app.include_router(collaboration_router)
 
 
 @app.get("/")

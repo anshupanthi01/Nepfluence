@@ -20,7 +20,6 @@ import {
   Menu,
   MessageSquare,
   Megaphone,
-  MoreHorizontal,
   PlayCircle,
   Plus,
   Search,
@@ -125,9 +124,6 @@ export function CampaignList({
                     Manage
                   </Button>
                 )}
-                <button className="grid size-9 place-items-center rounded-full border border-[#ded8cf]" type="button" aria-label="More campaign actions">
-                  <MoreHorizontal className="size-4" aria-hidden="true" />
-                </button>
               </div>
             </div>
           </article>

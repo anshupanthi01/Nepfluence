@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, ReactNode, useState } from "react"
+import { FormEvent, ReactNode, useRef, useState } from "react"
 import { BriefcaseBusiness, ClipboardList, Megaphone, Upload, UsersRound, X } from "lucide-react"
 import type {
   MarketplaceApplication as Application,
@@ -8,6 +8,8 @@ import type {
   CampaignStatus,
   MarketplaceCollaboration as Collaboration,
 } from "@/features/shared/marketplaceStore"
+import { useClickOutside } from "@/hooks/useClickOutside"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { emptyCampaignForm, lifecycleSteps, money, statusClass } from "./brand-dashboard.shared"
 
 type EditableCampaignStatus = Exclude<CampaignStatus, "OPEN">
@@ -16,16 +18,21 @@ export function CampaignFormModal({
   form,
   onChange,
   onClose,
+  onFileChange,
   onSubmit,
 }: {
   form: typeof emptyCampaignForm
   onChange: (form: typeof emptyCampaignForm) => void
   onClose: () => void
+  onFileChange?: (file: File | null) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4 py-6">
-      <form className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_70px_rgba(31,37,43,0.24)]" onSubmit={onSubmit}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4 py-6" onClick={onClose}>
+      <form className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_70px_rgba(31,37,43,0.24)]" onSubmit={onSubmit} onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-[#e8e2d9] p-5">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Campaigns</p>
@@ -42,21 +49,24 @@ export function CampaignFormModal({
             <input required className="input" value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="e.g. Summer creator launch" />
           </Field>
           <Field label="Niche">
-            <select className="input" value={form.niche} onChange={(event) => onChange({ ...form, niche: event.target.value })}>
+            <select required className="input" value={form.niche} onChange={(event) => onChange({ ...form, niche: event.target.value })}>
+              <option value="" disabled>Select a niche</option>
               {["Beauty", "Food", "Travel", "Lifestyle", "Fashion", "Tech"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </Field>
           <Field label="Budget">
-            <input className="input" value={form.budget} onChange={(event) => onChange({ ...form, budget: event.target.value })} inputMode="numeric" />
+            <input required className="input" value={form.budget} onChange={(event) => onChange({ ...form, budget: event.target.value })} inputMode="numeric" placeholder="e.g. 50000" />
           </Field>
           <Field label="Country">
-            <select className="input" value={form.country} onChange={(event) => onChange({ ...form, country: event.target.value as "NP" | "IN" })}>
+            <select required className="input" value={form.country} onChange={(event) => onChange({ ...form, country: event.target.value as "NP" | "IN" })}>
+              <option value="" disabled>Select a country</option>
               <option value="NP">Nepal</option>
               <option value="IN">India</option>
             </select>
           </Field>
           <Field label="Platform">
-            <select className="input" value={form.platform} onChange={(event) => onChange({ ...form, platform: event.target.value })}>
+            <select required className="input" value={form.platform} onChange={(event) => onChange({ ...form, platform: event.target.value })}>
+              <option value="" disabled>Select a platform</option>
               {["Instagram Reels", "TikTok", "YouTube Shorts", "Instagram Stories"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </Field>
@@ -67,14 +77,25 @@ export function CampaignFormModal({
             <textarea required className="input min-h-28 resize-none py-3" value={form.brief} onChange={(event) => onChange({ ...form, brief: event.target.value })} placeholder="Describe content format, must-have shots, revision rules, and approval criteria." />
           </Field>
           <div className="rounded-[20px] bg-white p-4 ring-1 ring-[#e8e2d9] md:col-span-2">
-            <div className="flex items-start gap-3">
+            <label className="flex cursor-pointer items-start gap-3" htmlFor="campaign-picture-input">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#f0ece5] text-[#1f252b]">
                 <Upload className="size-4" aria-hidden="true" />
               </span>
-              <p className="text-sm font-semibold leading-6 text-[#505852]">
-                Media upload will connect to storage later. For now, this creates a clean campaign draft in the MVP workspace.
-              </p>
-            </div>
+              <span className="text-sm font-semibold leading-6 text-[#505852]">
+                {selectedFileName ? `Selected: ${selectedFileName}` : "Upload a campaign cover image (optional). Uploaded after the draft is saved."}
+              </span>
+            </label>
+            <input
+              id="campaign-picture-input"
+              className="mt-3 block w-full text-sm text-[#505852]"
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null
+                setSelectedFileName(file?.name ?? null)
+                onFileChange?.(file)
+              }}
+            />
           </div>
         </div>
 
@@ -132,9 +153,11 @@ export function CampaignManageModal({
     setForm((current) => ({ ...current, status: "PUBLISHED" }))
   }
 
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4 py-6">
-      <section className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_70px_rgba(31,37,43,0.24)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4 py-6" onClick={onClose}>
+      <section className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_70px_rgba(31,37,43,0.24)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-[#e8e2d9] p-5">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Campaign manager</p>
@@ -194,7 +217,7 @@ export function CampaignManageModal({
               <label className="text-xs font-black text-[#505852]">
                 Status
                 <select className="mt-2 h-11 w-full rounded-[18px] border border-[#ded8cf] bg-white px-4 text-sm font-semibold text-[#1f252b] outline-none focus:border-[#1f252b]" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as EditableCampaignStatus }))}>
-                  {["DRAFT", "PUBLISHED", "PAUSED", "CLOSED", "COMPLETED"].map((status) => (
+                  {["DRAFT", "PUBLISHED", "CLOSED", "COMPLETED"].map((status) => (
                     <option key={status} value={status}>{status}</option>
                   ))}
                 </select>
@@ -269,9 +292,11 @@ function Field({ label, children, wide = false }: { label: string; children: Rea
 }
 
 export function LifecycleModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4">
-      <section className="w-full max-w-lg rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_24px_70px_rgba(31,37,43,0.24)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/34 px-4" onClick={onClose}>
+      <section className="w-full max-w-lg rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_24px_70px_rgba(31,37,43,0.24)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Workflow</p>
@@ -295,8 +320,12 @@ export function LifecycleModal({ onClose }: { onClose: () => void }) {
 }
 
 export function SupportPanel({ onClose }: { onClose: () => void }) {
+  const panelRef = useRef<HTMLElement>(null)
+  useClickOutside(true, panelRef, onClose)
+  useEscapeKey(true, onClose)
+
   return (
-    <section className="fixed bottom-20 right-5 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_50px_rgba(31,37,43,0.16)]">
+    <section ref={panelRef} className="fixed bottom-20 right-5 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_50px_rgba(31,37,43,0.16)]">
       <div className="flex items-start justify-between gap-3 border-b border-[#e8e2d9] p-4">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Support</p>

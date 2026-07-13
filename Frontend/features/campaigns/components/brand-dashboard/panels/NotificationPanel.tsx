@@ -1,11 +1,18 @@
 "use client"
 
 import { X } from "lucide-react"
+import { useRef } from "react"
+import { useClickOutside } from "@/hooks/useClickOutside"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import type { Activity } from "../brand-dashboard.shared"
 
 export function NotificationPanel({ activities, onClose }: { activities: Activity[]; onClose: () => void }) {
+  const panelRef = useRef<HTMLElement>(null)
+  useClickOutside(true, panelRef, onClose)
+  useEscapeKey(true, onClose)
+
   return (
-    <section className="fixed right-5 top-20 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_50px_rgba(31,37,43,0.16)]">
+    <section ref={panelRef} className="fixed right-5 top-20 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_18px_50px_rgba(31,37,43,0.16)]">
       <div className="flex items-start justify-between gap-3 border-b border-[#e8e2d9] p-4">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Notifications</p>

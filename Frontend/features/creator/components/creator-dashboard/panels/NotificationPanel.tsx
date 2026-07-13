@@ -31,7 +31,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   CampaignStatus,
@@ -40,6 +40,8 @@ import {
   MarketplaceCollaboration,
   useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
+import { useClickOutside } from "@/hooks/useClickOutside"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import {
   type Activity,
   type Collaboration,
@@ -50,8 +52,12 @@ import {
 } from "../creator-dashboard.shared"
 
 export function NotificationPanel({ activities, onClose }: { activities: Activity[]; onClose: () => void }) {
+  const panelRef = useRef<HTMLElement>(null)
+  useClickOutside(true, panelRef, onClose)
+  useEscapeKey(true, onClose)
+
   return (
-    <section className="fixed right-5 top-20 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[8px] border border-[#e4e7f1] bg-white shadow-[0_18px_50px_rgba(25,28,50,0.2)]">
+    <section ref={panelRef} className="fixed right-5 top-20 z-50 w-[min(380px,calc(100vw-2rem))] rounded-[8px] border border-[#e4e7f1] bg-white shadow-[0_18px_50px_rgba(25,28,50,0.2)]">
       <div className="flex items-start justify-between gap-3 border-b border-[#edf0f6] p-4">
         <div>
           <p className="text-xs font-black uppercase text-[#6174f8]">Notifications</p>

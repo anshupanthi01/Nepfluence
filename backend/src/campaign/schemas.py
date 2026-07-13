@@ -1,8 +1,11 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
-from datetime import datetime
+from typing import Literal, Optional
+from datetime import date, datetime
 from src.campaign.enums import CampaignStatus
 from src.brand_profile.schemas import BrandProfilePublic
+
+CampaignCountry = Literal["NP", "IN"]
+
 
 class CampaignBase(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -10,6 +13,11 @@ class CampaignBase(BaseModel):
 
     budget_min: int = Field(ge=0)
     budget_max: int = Field(ge=0)
+
+    niche: Optional[str] = Field(default=None, max_length=50)
+    country: Optional[CampaignCountry] = None
+    platform: Optional[str] = Field(default=None, max_length=50)
+    deadline: Optional[date] = None
 
 
 
@@ -24,12 +32,18 @@ class CampaignUpdate(BaseModel):
     budget_min: Optional[int] = Field(default=None, ge=0)
     budget_max: Optional[int] = Field(default=None, ge=0)
 
+    niche: Optional[str] = Field(default=None, max_length=50)
+    country: Optional[CampaignCountry] = None
+    platform: Optional[str] = Field(default=None, max_length=50)
+    deadline: Optional[date] = None
+
 
 class CampaignPublic(CampaignBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     brand_profile_id: int
+    brand_name: str
     status: CampaignStatus
     image_file:str|None
     image_path:str

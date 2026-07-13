@@ -112,6 +112,7 @@ class MarketplaceLedgerEntry(BaseModel):
 class CreatorDiscoveryDecision(BaseModel):
     handle: str
     creator: str
+    brandUserId: str | None = None
     status: Literal["SELECTED", "REJECTED"]
     decidedAt: str
 

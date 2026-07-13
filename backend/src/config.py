@@ -36,8 +36,14 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://127.0.0.1:8000/auth/google/callback"
-    
+
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:3000"
+
+    # Escrow.com sandbox (Phase C real-escrow integration is paused; not used by any code
+    # path today, kept here so .env can hold the credentials without breaking startup)
+    ESCROW_API_EMAIL: str = ""
+    ESCROW_API_KEY: SecretStr = SecretStr("")
+    ESCROW_BASE_URL: str = ""
 
 settings = Settings()

@@ -4,13 +4,51 @@ import { ClipboardList, Megaphone, ShieldCheck, UsersRound } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { apiClient } from "@/lib/api-client"
-import { hideConversation as hideConversationApi } from "@/features/conversations/api/conversationApi"
 import {
+  type Message,
+  hideConversation as hideConversationApi,
+  hideMessage as hideMessageApi,
+  listConversations,
+  listMessages as listMessagesApi,
+  sendMessage as sendMessageApi,
+} from "@/features/conversations/api/conversationApi"
+import type { BrandConversation } from "./panels/MessagesPanel"
+import {
+  MarketplaceApplication as Application,
   MarketplaceCampaign as Campaign,
+  MarketplaceCollaboration as Collaboration,
+  MarketplaceLedgerEntry as LedgerEntry,
+  MarketplaceWallet as Wallet,
   ApplicationStatus,
   CreatorDiscoveryDecision,
   useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
+import {
+  type Collaboration as RealCollaboration,
+  type LedgerEntry as RealLedgerEntry,
+  type Wallet as RealWallet,
+  approveDeliverable as approveDeliverableApi,
+  depositEscrow as depositEscrowApi,
+  getLedger,
+  getWallet,
+  listMyCollaborations,
+} from "@/features/collaborations/api/collaborationApi"
+import {
+  type Campaign as RealCampaign,
+  closeCampaign as closeCampaignApi,
+  completeCampaign as completeCampaignApi,
+  createCampaign as createCampaignApi,
+  listMyCampaigns,
+  publishCampaign as publishCampaignApi,
+  updateCampaign as updateCampaignApi,
+  uploadCampaignPicture,
+} from "@/features/campaigns/api/campaignApi"
+import {
+  type Proposal,
+  acceptProposal as acceptProposalApi,
+  listCampaignProposals,
+  rejectProposal as rejectProposalApi,
+} from "@/features/campaigns/api/proposalApi"
 import { readMockSession } from "@/lib/auth"
 import {
   ApplicationQueue,
@@ -91,6 +129,66 @@ function titleFromEmail(email?: string) {
     .join(" ")
 }
 
+function deliverableCopy(state: Collaboration["state"], escrow: Collaboration["escrow"]) {
+  if (state === "APPROVED") return "Approved. Payout released to creator wallet."
+  if (state === "SUBMITTED") return "Video deliverable submitted. Waiting for brand review."
+  if (escrow === "HELD") return "Chat unlocked. Waiting for first deliverable."
+  return "Escrow required before chat unlocks."
+}
+
+function toUiCollaboration(collab: RealCollaboration, brandUserId: string | undefined, fallbackBrandName: string): Collaboration {
+  const state = collab.state.toUpperCase() as Collaboration["state"]
+  const escrow = collab.escrow_status.toUpperCase() as Collaboration["escrow"]
+
+  return {
+    id: collab.id,
+    brandUserId,
+    creatorUserId: collab.creator ? String(collab.creator.user_id) : undefined,
+    creatorHandle: collab.creator?.handle,
+    campaign: collab.campaign?.title ?? "Campaign",
+    campaignId: collab.campaign?.id ?? 0,
+    brand: collab.campaign?.brand_name ?? fallbackBrandName,
+    creator: collab.creator?.full_name ?? "Creator",
+    state,
+    escrow,
+    deliverable: deliverableCopy(state, escrow),
+    payout: collab.payout_amount,
+    submission: collab.submission
+      ? {
+          videoUrl: collab.submission.video_url,
+          postUrl: collab.submission.post_url ?? "",
+          caption: collab.submission.caption ?? "",
+          notes: collab.submission.notes ?? "",
+          aspectRatio: collab.submission.aspect_ratio ?? "",
+          duration: collab.submission.duration ?? "",
+          submittedAt: collab.submission.submitted_at,
+          checklist: {
+            briefMatched: collab.submission.brief_matched,
+            usageRights: collab.submission.usage_rights,
+            noCopyrightMusic: collab.submission.no_copyright_music,
+          },
+        }
+      : undefined,
+  }
+}
+
+function toUiWallet(wallet: RealWallet | null, userId: string | undefined, role: Wallet["role"]): Wallet | null {
+  if (!wallet) return null
+  return { userId: userId ?? "", role, balance: wallet.balance, escrowHeld: wallet.escrow_held, released: wallet.released }
+}
+
+function toUiLedger(entries: RealLedgerEntry[]): LedgerEntry[] {
+  return entries.map((entry) => ({
+    id: entry.id,
+    collaborationId: entry.collaboration_id,
+    fromUserId: entry.from_user_id !== null ? String(entry.from_user_id) : undefined,
+    toUserId: entry.to_user_id !== null ? String(entry.to_user_id) : undefined,
+    type: entry.type === "escrow_deposit" ? "ESCROW_DEPOSIT" : "PAYOUT_RELEASE",
+    amount: entry.amount,
+    createdAt: entry.created_at,
+  }))
+}
+
 function readBrandSection(): Section {
   if (typeof window === "undefined") return "Discover Creators"
 
@@ -124,31 +222,196 @@ export default function BrandDashboardOverview() {
   const [creatorSearch, setCreatorSearch] = useState("")
   const [directoryCreators, setDirectoryCreators] = useState<Creator[]>([])
   const [brandMessage, setBrandMessage] = useState("")
-  const [selectedRoomId, setSelectedRoomId] = useState(1)
+  const [conversations, setConversations] = useState<BrandConversation[]>([])
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([])
+  const [conversationsReloadToken, setConversationsReloadToken] = useState(0)
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null)
   const [form, setForm] = useState(emptyCampaignForm)
+  const [pendingCampaignFile, setPendingCampaignFile] = useState<File | null>(null)
+  const [realCampaigns, setRealCampaigns] = useState<RealCampaign[]>([])
+  const [realProposals, setRealProposals] = useState<Proposal[]>([])
+  const [campaignsReloadToken, setCampaignsReloadToken] = useState(0)
   const currentSection = brandPathSections[pathname] ?? activeSection
-  const campaigns = useMemo(
+
+  function refreshCampaignsAndProposals() {
+    setCampaignsReloadToken((token) => token + 1)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCampaignsAndProposals() {
+      try {
+        const myCampaigns = await listMyCampaigns()
+        const proposalLists = await Promise.all(
+          myCampaigns.map((campaign) => listCampaignProposals(campaign.id).catch(() => [] as Proposal[])),
+        )
+        if (!cancelled) {
+          setRealCampaigns(myCampaigns)
+          setRealProposals(proposalLists.flat())
+        }
+      } catch {
+        if (!cancelled) {
+          setRealCampaigns([])
+          setRealProposals([])
+        }
+      }
+    }
+
+    void loadCampaignsAndProposals()
+
+    return () => {
+      cancelled = true
+    }
+  }, [campaignsReloadToken])
+
+  const campaigns = useMemo<Campaign[]>(
     () =>
-      marketplace.campaigns.filter((campaign) =>
-        campaign.brandUserId ? campaign.brandUserId === session?.userId : campaign.brand === currentBrandName,
-      ),
-    [currentBrandName, marketplace.campaigns, session?.userId],
+      realCampaigns.map((campaign) => {
+        const campaignProposals = realProposals.filter((proposal) => proposal.campaign_id === campaign.id)
+        return {
+          id: campaign.id,
+          brandUserId: session?.userId,
+          brand: currentBrandName,
+          title: campaign.title,
+          niche: campaign.niche ?? "",
+          budget: campaign.budget_max,
+          country: (campaign.country ?? "NP") as "NP" | "IN",
+          platform: campaign.platform ?? "",
+          status: campaign.status.toUpperCase() as Campaign["status"],
+          applications: campaignProposals.filter((proposal) => proposal.status !== "withdrawn").length,
+          accepted: campaignProposals.filter((proposal) => proposal.status === "accepted").length,
+          reach: 0,
+          deadline: campaign.deadline ?? "Not set",
+          brief: campaign.description ?? "",
+        }
+      }),
+    [realCampaigns, realProposals, session?.userId, currentBrandName],
   )
-  const ownedCampaignIds = useMemo(() => new Set(campaigns.map((campaign) => campaign.id)), [campaigns])
-  const applications = useMemo(
-    () => marketplace.applications.filter((application) => ownedCampaignIds.has(application.campaignId)),
-    [marketplace.applications, ownedCampaignIds],
+  const applications = useMemo<Application[]>(
+    () =>
+      realProposals
+        .filter((proposal) => proposal.status !== "withdrawn")
+        .map((proposal) => ({
+          id: proposal.id,
+          creatorUserId: proposal.creator ? String(proposal.creator.user_id) : undefined,
+          creator: proposal.creator?.full_name ?? "Creator",
+          handle: proposal.creator?.handle ?? "",
+          country: (proposal.creator?.country ?? "NP") as "NP" | "IN",
+          niche: proposal.creator?.niche ?? "",
+          followers: proposal.creator?.followers ?? "0",
+          match: 90,
+          status: proposal.status.toUpperCase() as ApplicationStatus,
+          campaignId: proposal.campaign_id,
+        })),
+    [realProposals],
   )
+
+  function refreshConversations() {
+    setConversationsReloadToken((token) => token + 1)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadConversations() {
+      if (campaigns.length === 0) {
+        if (!cancelled) setConversations([])
+        return
+      }
+      try {
+        const lists = await Promise.all(
+          campaigns.map((campaign) =>
+            listConversations(campaign.id)
+              .then((items) => items.map((item) => ({ ...item, campaignTitle: campaign.title })))
+              .catch(() => [] as BrandConversation[]),
+          ),
+        )
+        if (!cancelled) setConversations(lists.flat())
+      } catch {
+        if (!cancelled) setConversations([])
+      }
+    }
+
+    void loadConversations()
+    const intervalId = window.setInterval(() => {
+      void loadConversations()
+    }, 5000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaigns.map((campaign) => campaign.id).join(","), conversationsReloadToken])
+
+  const activeConversationId = conversations.some((item) => item.id === selectedConversationId)
+    ? selectedConversationId
+    : (conversations[0]?.id ?? null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadMessages() {
+      const conversation = conversations.find((item) => item.id === activeConversationId)
+      if (!conversation) {
+        if (!cancelled) setConversationMessages([])
+        return
+      }
+      try {
+        const items = await listMessagesApi(conversation.campaign_id, conversation.id)
+        if (!cancelled) setConversationMessages(items)
+      } catch {
+        if (!cancelled) setConversationMessages([])
+      }
+    }
+
+    void loadMessages()
+
+    return () => {
+      cancelled = true
+    }
+  }, [conversations, activeConversationId])
+
+  const [realCollaborations, setRealCollaborations] = useState<RealCollaboration[]>([])
+  const [realWallet, setRealWallet] = useState<RealWallet | null>(null)
+  const [realLedger, setRealLedger] = useState<RealLedgerEntry[]>([])
+  const [collaborationsReloadToken, setCollaborationsReloadToken] = useState(0)
+
+  function refreshCollaborations() {
+    setCollaborationsReloadToken((token) => token + 1)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCollaborations() {
+      const [collabs, wallet, ledger] = await Promise.all([
+        listMyCollaborations().catch(() => [] as RealCollaboration[]),
+        getWallet().catch(() => null),
+        getLedger().catch(() => [] as RealLedgerEntry[]),
+      ])
+      if (!cancelled) {
+        setRealCollaborations(collabs)
+        setRealWallet(wallet)
+        setRealLedger(ledger)
+      }
+    }
+
+    void loadCollaborations()
+
+    return () => {
+      cancelled = true
+    }
+  }, [collaborationsReloadToken])
+
   const collaborations = useMemo(
-    () =>
-      marketplace.collaborations.filter((collab) =>
-        (collab.brandUserId ? collab.brandUserId === session?.userId : ownedCampaignIds.has(collab.campaignId)) &&
-        !collab.hiddenForBrandAt,
-      ),
-    [marketplace.collaborations, ownedCampaignIds, session?.userId],
+    () => realCollaborations.map((collab) => toUiCollaboration(collab, session?.userId, currentBrandName)),
+    [realCollaborations, session?.userId, currentBrandName],
   )
-  const activeRoomId = collaborations.some((collab) => collab.id === selectedRoomId) ? selectedRoomId : collaborations[0]?.id
+  const brandWallet = useMemo(() => toUiWallet(realWallet, session?.userId, "brand"), [realWallet, session?.userId])
+  const brandLedger = useMemo(() => toUiLedger(realLedger), [realLedger])
   const [activities, setActivities] = useState<Activity[]>([])
 
   useEffect(() => {
@@ -211,8 +474,6 @@ export default function BrandDashboardOverview() {
   })
   const pendingApplications = applications.filter((application) => application.status === "PENDING")
   const managedCampaign = campaigns.find((campaign) => campaign.id === managedCampaignId) ?? null
-  const brandWallet = marketplace.getWallet(session?.userId, "brand")
-  const brandLedger = marketplace.ledger.filter((entry) => collaborations.some((collab) => collab.id === entry.collaborationId))
   const paymentTotal = collaborations.filter((collab) => collab.escrow === "HELD").reduce((sum, collab) => sum + collab.payout, 0)
 
   function addActivity(message: string, tone: Activity["tone"] = "blue") {
@@ -221,38 +482,77 @@ export default function BrandDashboardOverview() {
 
   function submitCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const nextCampaign: Campaign = {
-      id: nextUiId(),
-      brandUserId: session?.userId,
-      brand: currentBrandName,
-      title: form.title.trim() || "Untitled campaign",
-      niche: form.niche,
-      budget: Number(form.budget) || 0,
-      country: form.country,
-      platform: form.platform,
-      status: "DRAFT",
-      applications: 0,
-      accepted: 0,
-      reach: 0,
-      deadline: form.deadline || "Not set",
-      brief: form.brief.trim() || "Draft brief pending.",
-    }
+    const title = form.title.trim() || "Untitled campaign"
+    const budget = Number(form.budget) || 0
+    const fileToUpload = pendingCampaignFile
 
-    marketplace.createCampaign(nextCampaign)
-    setForm(emptyCampaignForm)
-    setCampaignModalOpen(false)
-    goTo("Campaigns")
-    addActivity(`${nextCampaign.title} created as DRAFT.`, "blue")
+    void (async () => {
+      try {
+        const created = await createCampaignApi({
+          title,
+          description: form.brief.trim() || undefined,
+          budget_min: budget,
+          budget_max: budget,
+          niche: form.niche || undefined,
+          country: (form.country || undefined) as "NP" | "IN" | undefined,
+          platform: form.platform || undefined,
+          deadline: form.deadline || undefined,
+        })
+
+        setRealCampaigns((current) => [created, ...current])
+
+        if (fileToUpload) {
+          const updated = await uploadCampaignPicture(created.id, fileToUpload).catch(() => undefined)
+          if (updated) {
+            setRealCampaigns((current) => current.map((campaign) => (campaign.id === updated.id ? updated : campaign)))
+          }
+        }
+
+        setForm(emptyCampaignForm)
+        setPendingCampaignFile(null)
+        setCampaignModalOpen(false)
+        await refreshCampaignsAndProposals()
+        goTo("Campaigns")
+        addActivity(`${title} created as DRAFT.`, "blue")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not create campaign.", "red")
+      }
+    })()
   }
 
   function publishCampaign(id: number) {
-    marketplace.publishCampaign(id)
-    addActivity("Campaign published and visible to influencers.", "green")
+    void (async () => {
+      try {
+        await publishCampaignApi(id)
+        await refreshCampaignsAndProposals()
+        addActivity("Campaign published and visible to influencers.", "green")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not publish campaign.", "red")
+      }
+    })()
   }
 
   function updateCampaign(id: number, updates: Partial<Pick<Campaign, "status" | "budget" | "deadline">>) {
-    marketplace.updateCampaign(id, updates)
-    addActivity("Campaign settings updated.", "green")
+    void (async () => {
+      try {
+        if (updates.budget !== undefined || updates.deadline !== undefined) {
+          await updateCampaignApi(id, {
+            ...(updates.budget !== undefined ? { budget_min: updates.budget, budget_max: updates.budget } : {}),
+            ...(updates.deadline !== undefined
+              ? { deadline: updates.deadline === "Not set" ? undefined : updates.deadline }
+              : {}),
+          })
+        }
+        if (updates.status === "PUBLISHED") await publishCampaignApi(id)
+        else if (updates.status === "CLOSED") await closeCampaignApi(id)
+        else if (updates.status === "COMPLETED") await completeCampaignApi(id)
+
+        await refreshCampaignsAndProposals()
+        addActivity("Campaign settings updated.", "green")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not update campaign.", "red")
+      }
+    })()
   }
 
   function openCampaignManager(campaign: Campaign) {
@@ -262,16 +562,26 @@ export default function BrandDashboardOverview() {
 
   function reviewApplication(id: number, status: ApplicationStatus) {
     const application = applications.find((item) => item.id === id)
-    if (!application) return
 
-    marketplace.reviewApplication(id, status)
+    void (async () => {
+      try {
+        if (status === "ACCEPTED") {
+          await acceptProposalApi(id)
+        } else {
+          await rejectProposalApi(id)
+        }
+        await refreshCampaignsAndProposals()
 
-    if (status === "ACCEPTED") {
-      addActivity(`${application.creator} accepted. Escrow deposit is now required.`, "amber")
-      goTo("Collaborations")
-    } else {
-      addActivity(`${application.creator} rejected and notified.`, "red")
-    }
+        if (status === "ACCEPTED") {
+          addActivity(`${application?.creator ?? "Creator"} accepted. You can now message them.`, "amber")
+          goTo("Messages")
+        } else {
+          addActivity(`${application?.creator ?? "Creator"} rejected and notified.`, "red")
+        }
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not update application.", "red")
+      }
+    })()
   }
 
   function decideCreatorDiscovery(creator: Creator, status: CreatorDiscoveryDecision["status"]) {
@@ -280,13 +590,27 @@ export default function BrandDashboardOverview() {
   }
 
   function depositEscrow(id: number) {
-    marketplace.depositEscrow(id)
-    addActivity("Escrow deposited. Collaboration chat is unlocked.", "green")
+    void (async () => {
+      try {
+        await depositEscrowApi(id)
+        refreshCollaborations()
+        addActivity("Escrow deposited. Collaboration chat is unlocked.", "green")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not deposit escrow.", "red")
+      }
+    })()
   }
 
   function approveDeliverable(id: number) {
-    marketplace.approveDeliverable(id)
-    addActivity("Deliverable approved. Payment release queued.", "green")
+    void (async () => {
+      try {
+        await approveDeliverableApi(id)
+        refreshCollaborations()
+        addActivity("Deliverable approved. Payment released.", "green")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not approve deliverable.", "red")
+      }
+    })()
   }
 
   function goTo(section: Section) {
@@ -307,35 +631,53 @@ export default function BrandDashboardOverview() {
   }
 
   function sendBrandMessage() {
-    const message = brandMessage.trim()
-    if (!message) return
+    const body = brandMessage.trim()
+    if (!body) return
 
-    const room = collaborations.find((collab) => collab.id === activeRoomId)
-    if (!room) return
-    marketplace.sendMessage(room.id, {
-      campaignId: room.campaignId,
-      brandUserId: room.brandUserId,
-      creatorUserId: room.creatorUserId,
-      sender: "brand",
-      senderName: room.brand,
-      body: message,
-    })
-    setBrandMessage("")
-    addActivity("Message sent to creator collaboration room.", "blue")
+    const conversation = conversations.find((item) => item.id === activeConversationId)
+    if (!conversation) return
+
+    void (async () => {
+      try {
+        await sendMessageApi(conversation.campaign_id, conversation.id, body)
+        setBrandMessage("")
+        refreshConversations()
+        addActivity(`Message sent to ${conversation.creator.full_name}.`, "blue")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not send message.", "red")
+      }
+    })()
   }
 
-  function deleteBrandConversation(roomId: number) {
-    const room = collaborations.find((collab) => collab.id === roomId)
-    if (!room) return
-    marketplace.hideConversation(room.id, "brand")
-    void hideConversationApi(room.campaignId, room.id).catch(() => undefined)
-    addActivity(`Conversation with ${room.creator} hidden.`, "amber")
+  function deleteBrandConversation(conversationId: number) {
+    const conversation = conversations.find((item) => item.id === conversationId)
+    if (!conversation) return
+
+    void (async () => {
+      try {
+        await hideConversationApi(conversation.campaign_id, conversation.id)
+        refreshConversations()
+        addActivity(`Conversation with ${conversation.creator.full_name} hidden.`, "amber")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not hide conversation.", "red")
+      }
+    })()
   }
 
   function deleteBrandMessages(messageIds: number[]) {
     if (!messageIds.length) return
-    marketplace.deleteMessages(messageIds)
-    addActivity(`${messageIds.length} message${messageIds.length === 1 ? "" : "s"} permanently deleted.`, "amber")
+    const conversation = conversations.find((item) => item.id === activeConversationId)
+    if (!conversation) return
+
+    void (async () => {
+      try {
+        await Promise.all(messageIds.map((messageId) => hideMessageApi(conversation.campaign_id, conversation.id, messageId)))
+        setConversationMessages((current) => current.filter((item) => !messageIds.includes(item.id)))
+        addActivity(`${messageIds.length} message${messageIds.length === 1 ? "" : "s"} permanently deleted.`, "amber")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not delete messages.", "red")
+      }
+    })()
   }
 
   return (
@@ -373,14 +715,14 @@ export default function BrandDashboardOverview() {
 
       {currentSection === "Messages" && (
         <MessagesPanel
-          collaborations={collaborations}
-          messages={marketplace.messages}
-          selectedRoomId={activeRoomId ?? selectedRoomId}
+          conversations={conversations}
+          messages={conversationMessages}
+          selectedConversationId={activeConversationId}
           message={brandMessage}
           onMessageChange={setBrandMessage}
           onDeleteConversation={deleteBrandConversation}
           onDeleteMessages={deleteBrandMessages}
-          onRoomChange={setSelectedRoomId}
+          onRoomChange={setSelectedConversationId}
           onSend={sendBrandMessage}
         />
       )}
@@ -405,7 +747,18 @@ export default function BrandDashboardOverview() {
       {currentSection === "Trust & Reports" && <TrustPanel collaborations={collaborations} />}
 
       {notificationOpen && <NotificationPanel activities={activities} onClose={() => setNotificationOpen(false)} />}
-      {campaignModalOpen && <CampaignFormModal form={form} onChange={setForm} onClose={() => setCampaignModalOpen(false)} onSubmit={submitCampaign} />}
+      {campaignModalOpen && (
+        <CampaignFormModal
+          form={form}
+          onChange={setForm}
+          onClose={() => {
+            setCampaignModalOpen(false)
+            setPendingCampaignFile(null)
+          }}
+          onFileChange={setPendingCampaignFile}
+          onSubmit={submitCampaign}
+        />
+      )}
       {managedCampaign && (
         <CampaignManageModal
           key={managedCampaign.id}

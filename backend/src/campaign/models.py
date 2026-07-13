@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime,UTC
+from datetime import date, datetime, UTC
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func, Enum
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
@@ -30,6 +30,11 @@ class Campaign(Base):
     budget_min: Mapped[int] = mapped_column(Integer, nullable=False)
     budget_max: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    niche: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    country: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    platform: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    deadline: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
     status: Mapped[CampaignStatus] = mapped_column(
         Enum(CampaignStatus),
         nullable=False,
@@ -49,6 +54,10 @@ class Campaign(Base):
         if self.image_file:
             return f"/media/brand_post/{self.image_file}"
         return "kei xaina"
+
+    @property
+    def brand_name(self) -> str:
+        return self.brand_profile.company_name if self.brand_profile else "Brand"
     
     proposals: Mapped[list["CampaignProposal"]] = relationship(
     "CampaignProposal",

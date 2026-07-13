@@ -40,6 +40,7 @@ import {
   MarketplaceCollaboration,
   useMarketplaceStore,
 } from "@/features/shared/marketplaceStore"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { type Collaboration } from "./creator-dashboard.shared"
 
 export function DeliverableSubmissionModal({
@@ -55,9 +56,11 @@ export function DeliverableSubmissionModal({
   onClose: () => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4 py-6">
-      <form className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[8px] bg-white shadow-[0_24px_70px_rgba(20,21,34,0.28)]" onSubmit={onSubmit}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4 py-6" onClick={onClose}>
+      <form className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[8px] bg-white shadow-[0_24px_70px_rgba(20,21,34,0.28)]" onSubmit={onSubmit} onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-[#edf0f6] p-5">
           <div>
             <p className="text-xs font-black uppercase text-[#6174f8]">Creator deliverable</p>
@@ -144,6 +147,39 @@ export function DeliverableSubmissionModal({
           </Button>
         </div>
       </form>
+    </div>
+  )
+}
+
+export function ProfileRequiredModal({ onClose, onGoToProfile }: { onClose: () => void; onGoToProfile: () => void }) {
+  useEscapeKey(true, onClose)
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4 py-6" onClick={onClose}>
+      <div className="w-full max-w-md overflow-hidden rounded-[8px] bg-white shadow-[0_24px_70px_rgba(20,21,34,0.28)]" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 border-b border-[#edf0f6] p-5">
+          <div>
+            <p className="text-xs font-black uppercase text-[#b8860b]">Profile incomplete</p>
+            <h2 className="mt-1 text-xl font-black">Complete your profile first</h2>
+          </div>
+          <button className="grid size-9 place-items-center rounded-full bg-[#f3f5fb]" type="button" aria-label="Close" onClick={onClose}>
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="p-5">
+          <p className="text-sm font-medium leading-6 text-[#555866]">
+            Brands need at least your full name and content niche before they can review an application. Add those to your profile, then come back and apply.
+          </p>
+        </div>
+        <div className="flex justify-end gap-3 border-t border-[#edf0f6] p-5">
+          <Button className="h-10 rounded-[8px] px-4 text-sm font-black" variant="outline" type="button" onClick={onClose}>
+            Not now
+          </Button>
+          <Button className="h-10 rounded-[8px] bg-[#6174f8] px-4 text-sm font-black text-white hover:bg-[#5268df]" type="button" onClick={onGoToProfile}>
+            Complete profile
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

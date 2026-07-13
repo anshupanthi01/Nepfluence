@@ -91,10 +91,10 @@ export const lifecycleSteps = [
 
 export const emptyCampaignForm = {
   title: "",
-  niche: "Beauty",
-  budget: "50000",
-  country: "NP" as "NP" | "IN",
-  platform: "Instagram Reels",
+  niche: "",
+  budget: "",
+  country: "" as "" | "NP" | "IN",
+  platform: "",
   deadline: "",
   brief: "",
 }

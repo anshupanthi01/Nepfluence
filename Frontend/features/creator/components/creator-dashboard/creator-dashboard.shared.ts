@@ -17,7 +17,7 @@ import {
   MarketplaceCollaboration,
 } from "@/features/shared/marketplaceStore"
 export type Section = "Dashboard" | "Find Campaigns" | "Applications" | "Collaborations" | "Messages" | "Payouts" | "Profile"
-export type CreatorApplicationStatus = "NOT_APPLIED" | "PENDING" | "ACCEPTED" | "REJECTED"
+export type CreatorApplicationStatus = "NOT_APPLIED" | "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN"
 export type CreatorCampaign = Omit<MarketplaceCampaign, "status"> & {
   campaignStatus: CampaignStatus
   match: number

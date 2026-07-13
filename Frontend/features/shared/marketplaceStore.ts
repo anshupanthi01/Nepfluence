@@ -107,6 +107,7 @@ export type MarketplaceLedgerEntry = {
 export type CreatorDiscoveryDecision = {
   handle: string
   creator: string
+  brandUserId?: string
   status: "SELECTED" | "REJECTED"
   decidedAt: string
 }
@@ -130,7 +131,7 @@ type CreatorProfile = {
   match?: number
 }
 
-const storeKey = "nepfluence-marketplace-state-v5"
+const storeKey = "nepfluence-marketplace-state-v6"
 const storeEvent = "nepfluence-marketplace-updated"
 let cachedState: MarketplaceState | null = null
 let remoteSyncStarted = false
@@ -171,10 +172,14 @@ function mergeWallets(base: MarketplaceWallet[] | undefined, override: Marketpla
   return Array.from(merged.values())
 }
 
+function discoveryKey(decision: CreatorDiscoveryDecision) {
+  return `${decision.brandUserId ?? ""}:${decision.handle}`
+}
+
 function mergeDiscovery(base: CreatorDiscoveryDecision[] | undefined, override: CreatorDiscoveryDecision[] | undefined) {
   const merged = new Map<string, CreatorDiscoveryDecision>()
-  ;(base ?? []).forEach((decision) => merged.set(decision.handle, decision))
-  ;(override ?? []).forEach((decision) => merged.set(decision.handle, decision))
+  ;(base ?? []).forEach((decision) => merged.set(discoveryKey(decision), decision))
+  ;(override ?? []).forEach((decision) => merged.set(discoveryKey(decision), decision))
   return Array.from(merged.values())
 }
 
@@ -739,16 +744,20 @@ export function useMarketplaceStore() {
       }))
     },
     decideCreatorDiscovery(creator: Pick<CreatorDiscoveryDecision, "creator" | "handle">, status: CreatorDiscoveryDecision["status"]) {
+      const session = readMockSession()
       commit((current) => ({
         ...current,
         discoveryDecisions: [
           {
             creator: creator.creator,
             handle: creator.handle,
+            brandUserId: session?.userId,
             status,
             decidedAt: new Date().toISOString(),
           },
-          ...current.discoveryDecisions.filter((decision) => decision.handle !== creator.handle),
+          ...current.discoveryDecisions.filter(
+            (decision) => !(decision.handle === creator.handle && decision.brandUserId === session?.userId),
+          ),
         ],
       }))
     },

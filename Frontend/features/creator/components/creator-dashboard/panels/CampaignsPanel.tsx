@@ -1,10 +1,29 @@
 "use client"
 
-import { ArrowRight, Bookmark, CalendarDays, Heart, MessageCircle, MessageSquare, Search, Send, X } from "lucide-react"
+import { ArrowRight, Bookmark, CalendarDays, Heart, MessageSquare, Search, Send, X } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { KeyboardEvent, MouseEvent, useMemo, useState } from "react"
+import { KeyboardEvent, MouseEvent, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { readMockSession } from "@/lib/auth"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { type CreatorCampaign, campaignImage, money, statusClass } from "../creator-dashboard.shared"
+
+function readSavedIds(key: string) {
+  if (typeof window === "undefined") return []
+  const raw = window.localStorage.getItem(key)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as number[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeSavedIds(key: string, ids: number[]) {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(key, JSON.stringify(ids))
+}
 
 export function CampaignsPanel({
   campaigns,
@@ -24,18 +43,22 @@ export function CampaignsPanel({
   compact?: boolean
 }) {
   const visibleCampaigns = compact ? campaigns.slice(0, 2) : campaigns
+  const userId = readMockSession()?.userId
+  const likesKey = `nepfluence-creator-likes:${userId ?? "guest"}`
+  const bookmarksKey = `nepfluence-creator-bookmarks:${userId ?? "guest"}`
   const [likedCampaignIds, setLikedCampaignIds] = useState<number[]>([])
   const [bookmarkedCampaignIds, setBookmarkedCampaignIds] = useState<number[]>([])
   const [detailCampaignId, setDetailCampaignId] = useState<number | null>(null)
-  const [commentCampaignId, setCommentCampaignId] = useState<number | null>(null)
   const [messageCampaignId, setMessageCampaignId] = useState<number | null>(null)
-  const [messageDraft, setMessageDraft] = useState("")
   const [notice, setNotice] = useState("")
-  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({})
-  const [commentsByCampaign, setCommentsByCampaign] = useState<Record<number, string[]>>({})
   const detailCampaign = useMemo(() => campaigns.find((campaign) => campaign.id === detailCampaignId) ?? null, [campaigns, detailCampaignId])
-  const commentCampaign = useMemo(() => campaigns.find((campaign) => campaign.id === commentCampaignId) ?? null, [campaigns, commentCampaignId])
   const messageCampaign = useMemo(() => campaigns.find((campaign) => campaign.id === messageCampaignId) ?? null, [campaigns, messageCampaignId])
+
+  useEffect(() => {
+    setLikedCampaignIds(readSavedIds(likesKey))
+    setBookmarkedCampaignIds(readSavedIds(bookmarksKey))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
 
   function toggleId(ids: number[], id: number) {
     return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
@@ -45,27 +68,35 @@ export function CampaignsPanel({
     event.stopPropagation()
   }
 
+  function toggleLikeFor(campaign: CreatorCampaign) {
+    const wasLiked = likedCampaignIds.includes(campaign.id)
+    const next = toggleId(likedCampaignIds, campaign.id)
+    setLikedCampaignIds(next)
+    writeSavedIds(likesKey, next)
+    setNotice(`${campaign.title} ${wasLiked ? "removed from liked campaigns" : "added to liked campaigns"}.`)
+  }
+
+  function toggleBookmarkFor(campaign: CreatorCampaign) {
+    const wasBookmarked = bookmarkedCampaignIds.includes(campaign.id)
+    const next = toggleId(bookmarkedCampaignIds, campaign.id)
+    setBookmarkedCampaignIds(next)
+    writeSavedIds(bookmarksKey, next)
+    setNotice(`${campaign.title} ${wasBookmarked ? "removed from saved campaigns" : "saved to bookmarks"}.`)
+  }
+
   function toggleLike(event: MouseEvent<HTMLButtonElement>, campaign: CreatorCampaign) {
     stopCardClick(event)
-    setLikedCampaignIds((current) => toggleId(current, campaign.id))
-    setNotice(`${campaign.title} ${likedCampaignIds.includes(campaign.id) ? "removed from liked campaigns" : "added to liked campaigns"}.`)
+    toggleLikeFor(campaign)
   }
 
   function toggleBookmark(event: MouseEvent<HTMLButtonElement>, campaign: CreatorCampaign) {
     stopCardClick(event)
-    setBookmarkedCampaignIds((current) => toggleId(current, campaign.id))
-    setNotice(`${campaign.title} ${bookmarkedCampaignIds.includes(campaign.id) ? "removed from saved campaigns" : "saved to bookmarks"}.`)
-  }
-
-  function openComments(event: MouseEvent<HTMLButtonElement>, campaign: CreatorCampaign) {
-    stopCardClick(event)
-    setCommentCampaignId(campaign.id)
+    toggleBookmarkFor(campaign)
   }
 
   function openMessage(event: MouseEvent<HTMLButtonElement>, campaign: CreatorCampaign) {
     stopCardClick(event)
     setMessageCampaignId(campaign.id)
-    setMessageDraft(`Hi ${campaign.brand}, I am interested in your "${campaign.title}" campaign.`)
   }
 
   function openDetails(campaign: CreatorCampaign) {
@@ -79,25 +110,9 @@ export function CampaignsPanel({
     }
   }
 
-  function submitComment(campaign: CreatorCampaign) {
-    const comment = commentDrafts[campaign.id]?.trim()
-    if (!comment) return
-
-    setCommentsByCampaign((current) => ({
-      ...current,
-      [campaign.id]: [...(current[campaign.id] ?? []), comment],
-    }))
-    setCommentDrafts((current) => ({ ...current, [campaign.id]: "" }))
-    setNotice(`Comment added to ${campaign.title}.`)
-  }
-
-  function sendMessageToBrand() {
-    if (!messageCampaign || !messageDraft.trim()) return
-
-    onMessageBrand(messageCampaign.id, messageDraft)
-    setNotice(`Message sent to ${messageCampaign.brand}. You can continue the thread in Messages.`)
+  function goToMessages(campaign: CreatorCampaign) {
+    onMessageBrand(campaign.id, "")
     setMessageCampaignId(null)
-    setMessageDraft("")
   }
 
   return (
@@ -128,7 +143,6 @@ export function CampaignsPanel({
         {visibleCampaigns.map((campaign) => {
           const liked = likedCampaignIds.includes(campaign.id)
           const bookmarked = bookmarkedCampaignIds.includes(campaign.id)
-          const commentCount = commentsByCampaign[campaign.id]?.length ?? 0
 
           return (
           <article
@@ -171,7 +185,6 @@ export function CampaignsPanel({
               <div className="mt-4 flex items-center justify-between gap-2">
                 <div className="flex gap-1.5">
                   <IconButton active={liked} label={liked ? "Unlike campaign" : "Like campaign"} icon={Heart} onClick={(event) => toggleLike(event, campaign)} />
-                  <IconButton label={`Comments${commentCount ? ` (${commentCount})` : ""}`} icon={MessageCircle} onClick={(event) => openComments(event, campaign)} />
                   <IconButton active={bookmarked} label={bookmarked ? "Remove bookmark" : "Bookmark campaign"} icon={Bookmark} onClick={(event) => toggleBookmark(event, campaign)} />
                   <IconButton label="Message brand" icon={MessageSquare} onClick={(event) => openMessage(event, campaign)} />
                 </div>
@@ -209,35 +222,18 @@ export function CampaignsPanel({
           liked={likedCampaignIds.includes(detailCampaign.id)}
           onApply={onApply}
           onClose={() => setDetailCampaignId(null)}
-          onComment={() => setCommentCampaignId(detailCampaign.id)}
-          onMessage={() => {
-            setMessageCampaignId(detailCampaign.id)
-            setMessageDraft(`Hi ${detailCampaign.brand}, I am interested in your "${detailCampaign.title}" campaign.`)
-          }}
-          onToggleBookmark={() => setBookmarkedCampaignIds((current) => toggleId(current, detailCampaign.id))}
-          onToggleLike={() => setLikedCampaignIds((current) => toggleId(current, detailCampaign.id))}
+          onMessage={() => setMessageCampaignId(detailCampaign.id)}
+          onToggleBookmark={() => toggleBookmarkFor(detailCampaign)}
+          onToggleLike={() => toggleLikeFor(detailCampaign)}
           onWithdraw={onWithdraw}
-        />
-      )}
-
-      {commentCampaign && (
-        <CommentModal
-          campaign={commentCampaign}
-          comments={commentsByCampaign[commentCampaign.id] ?? []}
-          draft={commentDrafts[commentCampaign.id] ?? ""}
-          onChange={(value) => setCommentDrafts((current) => ({ ...current, [commentCampaign.id]: value }))}
-          onClose={() => setCommentCampaignId(null)}
-          onSubmit={() => submitComment(commentCampaign)}
         />
       )}
 
       {messageCampaign && (
         <MessageModal
           campaign={messageCampaign}
-          message={messageDraft}
-          onChange={setMessageDraft}
           onClose={() => setMessageCampaignId(null)}
-          onSend={sendMessageToBrand}
+          onGoToMessages={() => goToMessages(messageCampaign)}
         />
       )}
     </section>
@@ -275,7 +271,6 @@ function CampaignDetailModal({
   liked,
   onApply,
   onClose,
-  onComment,
   onMessage,
   onToggleBookmark,
   onToggleLike,
@@ -286,15 +281,16 @@ function CampaignDetailModal({
   liked: boolean
   onApply: (id: number) => void
   onClose: () => void
-  onComment: () => void
   onMessage: () => void
   onToggleBookmark: () => void
   onToggleLike: () => void
   onWithdraw: (id: number) => void
 }) {
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm">
-      <div className="mx-auto flex max-h-full max-w-4xl flex-col overflow-hidden rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]">
+    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-auto flex max-h-full max-w-4xl flex-col overflow-hidden rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]" onClick={(event) => event.stopPropagation()}>
         <div className="relative h-52 shrink-0 bg-[#eee8df] bg-cover bg-center" style={{ backgroundImage: `url(${campaignImage(campaign)})` }}>
           <div className="absolute inset-0 bg-gradient-to-t from-[#1f252b]/70 via-[#1f252b]/20 to-transparent" />
           <button className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white text-[#1f252b]" type="button" aria-label="Close campaign details" onClick={onClose}>
@@ -338,10 +334,7 @@ function CampaignDetailModal({
                 <button className={`h-10 rounded-[10px] border text-xs font-black ${bookmarked ? "border-[#1f252b] text-[#1f252b]" : "border-[#ded8cf] text-[#69716b]"}`} type="button" onClick={onToggleBookmark}>
                   Save
                 </button>
-                <button className="h-10 rounded-[10px] border border-[#ded8cf] text-xs font-black text-[#69716b]" type="button" onClick={onComment}>
-                  Comment
-                </button>
-                <button className="h-10 rounded-[10px] border border-[#ded8cf] text-xs font-black text-[#69716b]" type="button" onClick={onMessage}>
+                <button className="h-10 rounded-[10px] border border-[#ded8cf] text-xs font-black text-[#69716b] col-span-2" type="button" onClick={onMessage}>
                   Message
                 </button>
               </div>
@@ -363,71 +356,21 @@ function CampaignDetailModal({
   )
 }
 
-function CommentModal({
-  campaign,
-  comments,
-  draft,
-  onChange,
-  onClose,
-  onSubmit,
-}: {
-  campaign: CreatorCampaign
-  comments: string[]
-  draft: string
-  onChange: (value: string) => void
-  onClose: () => void
-  onSubmit: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm">
-      <div className="mx-auto flex max-h-full max-w-xl flex-col overflow-hidden rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]">
-        <div className="flex items-center justify-between border-b border-[#e8e2d9] px-4 py-3">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Comments</p>
-            <h2 className="text-base font-black text-[#1f252b]">{campaign.title}</h2>
-          </div>
-          <button className="grid size-9 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b]" type="button" aria-label="Close comments" onClick={onClose}>
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-        <div className="min-h-40 flex-1 overflow-y-auto p-4">
-          {comments.length === 0 ? (
-            <p className="rounded-[12px] border border-dashed border-[#ded8cf] bg-white p-4 text-sm font-semibold text-[#69716b]">No comments yet.</p>
-          ) : (
-            <div className="grid gap-2">
-              {comments.map((comment, index) => (
-                <p key={`${comment}-${index}`} className="rounded-[12px] bg-white px-3 py-2 text-sm font-semibold text-[#505852]">{comment}</p>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="border-t border-[#e8e2d9] p-4">
-          <textarea className="min-h-24 w-full rounded-[12px] border border-[#ded8cf] bg-white p-3 text-sm font-semibold text-[#1f252b] outline-none focus:border-[#1f252b]" value={draft} onChange={(event) => onChange(event.target.value)} placeholder="Write a comment..." />
-          <Button className="mt-3 h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#363d43]" type="button" disabled={!draft.trim()} onClick={onSubmit}>
-            Add comment
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function MessageModal({
   campaign,
-  message,
-  onChange,
   onClose,
-  onSend,
+  onGoToMessages,
 }: {
   campaign: CreatorCampaign
-  message: string
-  onChange: (value: string) => void
   onClose: () => void
-  onSend: () => void
+  onGoToMessages: () => void
 }) {
+  const unlocked = campaign.status === "ACCEPTED"
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm">
-      <div className="mx-auto max-w-xl overflow-hidden rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]">
+    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-auto max-w-xl overflow-hidden rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-[#e8e2d9] px-4 py-3">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Message brand</p>
@@ -439,10 +382,20 @@ function MessageModal({
         </div>
         <div className="p-4">
           <p className="rounded-[12px] bg-white p-3 text-sm font-semibold leading-5 text-[#505852]">{campaign.title}</p>
-          <textarea className="mt-3 min-h-32 w-full rounded-[12px] border border-[#ded8cf] bg-white p-3 text-sm font-semibold text-[#1f252b] outline-none focus:border-[#1f252b]" value={message} onChange={(event) => onChange(event.target.value)} placeholder="Write your message..." />
-          <Button className="mt-3 h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#363d43]" type="button" disabled={!message.trim()} onClick={onSend}>
-            Send message <Send className="size-3.5" aria-hidden="true" />
-          </Button>
+          {unlocked ? (
+            <div className="mt-3 rounded-[12px] border border-dashed border-[#ded8cf] bg-white p-4 text-center">
+              <p className="text-sm font-black text-[#1f252b]">You&apos;re connected with {campaign.brand}</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">Continue the conversation in your Messages inbox.</p>
+              <Button className="mt-3 h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#363d43]" type="button" onClick={onGoToMessages}>
+                Go to Messages <Send className="size-3.5" aria-hidden="true" />
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-[12px] border border-dashed border-[#ded8cf] bg-white p-4 text-center">
+              <p className="text-sm font-black text-[#1f252b]">Messaging isn&apos;t open yet</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">Direct messages with {campaign.brand} unlock once they accept your application to this campaign.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

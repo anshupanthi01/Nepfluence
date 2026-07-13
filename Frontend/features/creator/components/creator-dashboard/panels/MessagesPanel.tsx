@@ -2,13 +2,15 @@
 
 import { Send, Trash2, X } from "lucide-react"
 import { useState } from "react"
-import { useMarketplaceStore } from "@/features/shared/marketplaceStore"
-import { type Collaboration } from "../creator-dashboard.shared"
+import type { Conversation, Message } from "@/features/conversations/api/conversationApi"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
+
+export type CreatorConversation = Conversation & { campaignTitle: string; brandName: string }
 
 export function MessagesPanel({
-  collaborations,
+  conversations,
   messages,
-  selectedRoomId,
+  selectedConversationId,
   message,
   onMessageChange,
   onDeleteConversation,
@@ -16,45 +18,20 @@ export function MessagesPanel({
   onRoomChange,
   onSend,
 }: {
-  collaborations: Collaboration[]
-  messages: ReturnType<typeof useMarketplaceStore>["messages"]
-  selectedRoomId: number
+  conversations: CreatorConversation[]
+  messages: Message[]
+  selectedConversationId: number | null
   message: string
   onMessageChange: (message: string) => void
-  onDeleteConversation: (roomId: number) => void
+  onDeleteConversation: (conversationId: number) => void
   onDeleteMessages: (messageIds: number[]) => void
-  onRoomChange: (roomId: number) => void
+  onRoomChange: (conversationId: number) => void
   onSend: () => void
 }) {
   const [selectedMessageIds, setSelectedMessageIds] = useState<number[]>([])
   const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([])
-
-  function creatorThreadKey(collab: Collaboration) {
-    return `${collab.campaignId}:${collab.brandUserId ?? collab.brand}:${collab.creatorUserId ?? collab.creatorHandle ?? collab.creator}`
-  }
-
-  const directThreads = collaborations.filter((collab, index, list) => {
-    const threadKey = creatorThreadKey(collab)
-    return list.findIndex((item) => creatorThreadKey(item) === threadKey) === index
-  })
-  const activeRoom = directThreads.find((collab) => collab.id === selectedRoomId) ?? directThreads[0]
-  const activeThreadKey = activeRoom ? creatorThreadKey(activeRoom) : null
-  const activeThreadRoomIds = new Set(
-    collaborations
-      .filter((collab) => creatorThreadKey(collab) === activeThreadKey)
-      .map((collab) => collab.id),
-  )
-  const roomMessages = messages.filter((item) => {
-    if (item.deletedForCreatorAt) return false
-    if (activeRoom && item.campaignId && (item.brandUserId || activeRoom.brandUserId) && (item.creatorUserId || activeRoom.creatorUserId)) {
-      return (
-        item.campaignId === activeRoom.campaignId &&
-        (item.brandUserId ?? activeRoom.brandUserId) === activeRoom.brandUserId &&
-        (item.creatorUserId ?? activeRoom.creatorUserId) === activeRoom.creatorUserId
-      )
-    }
-    return activeThreadRoomIds.has(item.roomId)
-  })
+  const activeConversation = conversations.find((conversation) => conversation.id === selectedConversationId) ?? conversations[0]
+  const roomMessages = messages
   const selectedInRoom = selectedMessageIds.filter((id) => roomMessages.some((item) => item.id === id))
   const allSelected = roomMessages.length > 0 && selectedInRoom.length === roomMessages.length
 
@@ -92,25 +69,25 @@ export function MessagesPanel({
           <h2 className="mt-1 text-lg font-black tracking-tight text-[#1f252b]">Brand messages</h2>
         </div>
         <div className="space-y-2">
-          {directThreads.map((collab) => (
+          {conversations.map((conversation) => (
             <button
-              key={collab.id}
+              key={conversation.id}
               className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition ${
-                activeRoom?.id === collab.id ? "bg-[#1f252b] text-white shadow-sm" : "bg-white text-[#1f252b] hover:bg-[#f5f3ef]"
+                activeConversation?.id === conversation.id ? "bg-[#1f252b] text-white shadow-sm" : "bg-white text-[#1f252b] hover:bg-[#f5f3ef]"
               }`}
               type="button"
-              onClick={() => onRoomChange(collab.id)}
+              onClick={() => onRoomChange(conversation.id)}
             >
-              <span className={`grid size-10 shrink-0 place-items-center rounded-full text-sm font-black ${activeRoom?.id === collab.id ? "bg-white text-[#1f252b]" : "bg-[#f0ece5] text-[#505852]"}`}>
-                {collab.brand.charAt(0)}
+              <span className={`grid size-10 shrink-0 place-items-center rounded-full text-sm font-black ${activeConversation?.id === conversation.id ? "bg-white text-[#1f252b]" : "bg-[#f0ece5] text-[#505852]"}`}>
+                {conversation.brandName.charAt(0)}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black">{collab.brand}</span>
-                <span className={`block truncate text-xs font-semibold ${activeRoom?.id === collab.id ? "text-white/64" : "text-[#69716b]"}`}>{collab.campaign}</span>
+                <span className="block truncate text-sm font-black">{conversation.brandName}</span>
+                <span className={`block truncate text-xs font-semibold ${activeConversation?.id === conversation.id ? "text-white/64" : "text-[#69716b]"}`}>{conversation.campaignTitle}</span>
               </span>
             </button>
           ))}
-          {collaborations.length === 0 && (
+          {conversations.length === 0 && (
             <div className="rounded-[20px] border border-dashed border-[#ded8cf] bg-white p-4 text-center">
               <p className="text-sm font-black text-[#1f252b]">No rooms yet</p>
               <p className="mt-2 text-xs font-semibold text-[#69716b]">Messages unlock after a brand accepts your application.</p>
@@ -124,16 +101,15 @@ export function MessagesPanel({
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Direct message</p>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black tracking-tight text-[#1f252b]">{activeRoom?.brand ?? "Messages"}</h2>
-              {activeRoom && <p className="mt-1 text-xs font-semibold text-[#69716b]">{activeRoom.campaign} / {activeRoom.creator} to {activeRoom.brand}</p>}
+              <h2 className="text-xl font-black tracking-tight text-[#1f252b]">{activeConversation?.brandName ?? "Messages"}</h2>
+              {activeConversation && <p className="mt-1 text-xs font-semibold text-[#69716b]">{activeConversation.campaignTitle}</p>}
             </div>
-            {activeRoom && (
-              <button className="grid size-9 place-items-center rounded-full border border-[#e8caca] bg-white text-[#9f1d1d] transition hover:bg-[#fff0f0]" type="button" aria-label="Delete conversation" onClick={() => onDeleteConversation(activeRoom.id)}>
+            {activeConversation && (
+              <button className="grid size-9 place-items-center rounded-full border border-[#e8caca] bg-white text-[#9f1d1d] transition hover:bg-[#fff0f0]" type="button" aria-label="Delete conversation" onClick={() => onDeleteConversation(activeConversation.id)}>
                 <Trash2 className="size-4" aria-hidden="true" />
               </button>
             )}
           </div>
-          <p className="mt-1 text-sm font-semibold text-[#69716b]">{activeRoom?.escrow === "HELD" ? "Escrow is held, so chat and deliverables are open." : "Chat unlocks when escrow is deposited."}</p>
           {roomMessages.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button className="h-8 rounded-full border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#505852]" type="button" onClick={toggleAllMessages}>
@@ -151,17 +127,17 @@ export function MessagesPanel({
 
         <div className="min-h-[360px] flex-1 space-y-3 overflow-y-auto p-5">
           {roomMessages.map((item) => (
-            <div key={item.id} className={item.sender === "creator" ? "ml-auto max-w-md" : "max-w-md"}>
+            <div key={item.id} className={item.sender_role === "influencer" ? "ml-auto max-w-md" : "max-w-md"}>
               <div className="mb-1 flex items-center justify-between gap-2 px-1">
                 <label className="flex min-w-0 items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">
                   <input className="size-4 accent-[#1f252b]" type="checkbox" checked={selectedMessageIds.includes(item.id)} onChange={() => toggleMessageSelection(item.id)} />
-                  <span className="truncate">{item.senderName}</span>
+                  <span className="truncate">{item.sender_name}</span>
                 </label>
                 <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => confirmDelete([item.id])}>
                   <Trash2 className="size-3.5" aria-hidden="true" />
                 </button>
               </div>
-              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${item.sender === "creator" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>{item.body}</p>
+              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${item.sender_role === "influencer" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>{item.body}</p>
             </div>
           ))}
           {roomMessages.length === 0 && (
@@ -185,32 +161,48 @@ export function MessagesPanel({
                 if (event.key === "Enter") onSend()
               }}
             />
-            <button className="grid size-10 shrink-0 place-items-center rounded-full bg-[#1f252b] text-white disabled:opacity-50" type="button" aria-label="Send message" disabled={!activeRoom || !message.trim()} onClick={onSend}>
+            <button className="grid size-10 shrink-0 place-items-center rounded-full bg-[#1f252b] text-white disabled:opacity-50" type="button" aria-label="Send message" disabled={!activeConversation || !message.trim()} onClick={onSend}>
               <Send className="size-4" aria-hidden="true" />
             </button>
           </div>
         </div>
       </div>
       {pendingDeleteIds.length > 0 && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/35 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_24px_80px_rgba(31,37,43,0.2)]">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Confirm delete</p>
-                <h3 className="mt-1 text-lg font-black text-[#1f252b]">Delete {pendingDeleteIds.length} message{pendingDeleteIds.length === 1 ? "" : "s"} permanently?</h3>
-              </div>
-              <button className="grid size-8 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b]" type="button" aria-label="Cancel delete" onClick={() => setPendingDeleteIds([])}>
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-            <p className="mt-3 text-sm font-semibold leading-6 text-[#69716b]">This removes the selected message{pendingDeleteIds.length === 1 ? "" : "s"} from this conversation for both sides.</p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button className="h-9 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#505852]" type="button" onClick={() => setPendingDeleteIds([])}>Cancel</button>
-              <button className="h-9 rounded-full bg-[#9f1d1d] px-4 text-xs font-black text-white" type="button" onClick={deletePendingMessages}>Delete permanently</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteDialog pendingDeleteIds={pendingDeleteIds} onCancel={() => setPendingDeleteIds([])} onConfirm={deletePendingMessages} />
       )}
     </section>
+  )
+}
+
+function ConfirmDeleteDialog({
+  pendingDeleteIds,
+  onCancel,
+  onConfirm,
+}: {
+  pendingDeleteIds: number[]
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  useEscapeKey(true, onCancel)
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/35 p-4 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-[16px] border border-[#e8e2d9] bg-[#fbfaf7] p-5 shadow-[0_24px_80px_rgba(31,37,43,0.2)]" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8a8175]">Confirm delete</p>
+            <h3 className="mt-1 text-lg font-black text-[#1f252b]">Delete {pendingDeleteIds.length} message{pendingDeleteIds.length === 1 ? "" : "s"} permanently?</h3>
+          </div>
+          <button className="grid size-8 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b]" type="button" aria-label="Cancel delete" onClick={onCancel}>
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="mt-3 text-sm font-semibold leading-6 text-[#69716b]">This removes the selected message{pendingDeleteIds.length === 1 ? "" : "s"} from this conversation for both sides.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="h-9 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#505852]" type="button" onClick={onCancel}>Cancel</button>
+          <button className="h-9 rounded-full bg-[#9f1d1d] px-4 text-xs font-black text-white" type="button" onClick={onConfirm}>Delete permanently</button>
+        </div>
+      </div>
+    </div>
   )
 }

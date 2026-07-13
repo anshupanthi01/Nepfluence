@@ -1,11 +1,11 @@
 "use client"
 
-import Link from "next/link"
 import { ArrowRight, Bell, LogOut, Menu, MessageSquare, PanelLeftClose, PanelLeftOpen, Plus, ShieldCheck } from "lucide-react"
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { logout } from "@/lib/auth"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import { type Section, navItems } from "./brand-dashboard.shared"
 
 type BrandDashboardShellProps = {
@@ -35,6 +35,7 @@ export function BrandDashboardShell({
 }: BrandDashboardShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const router = useRouter()
+  useEscapeKey(mobileMenuOpen, onCloseMobileMenu)
 
   function signOut() {
     logout()
@@ -44,14 +45,19 @@ export function BrandDashboardShell({
   const sidebar = (
     <aside className="flex h-full flex-col bg-[#fbfaf7]">
       <div className={`flex h-14 items-center border-b border-[#e8e2d9] ${sidebarCollapsed ? "justify-center px-2" : "justify-between gap-3 px-4"}`}>
-        <Link href="/" className={`flex min-w-0 items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""}`} aria-label="Nepfluence home">
+        <button
+          type="button"
+          className={`flex min-w-0 items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""}`}
+          aria-label="Nepfluence home"
+          onClick={() => onNavigate("Dashboard")}
+        >
           <span className="grid size-8 shrink-0 rotate-[-35deg] grid-cols-3 gap-1">
             {Array.from({ length: 9 }).map((_, index) => (
               <span key={index} className="rounded-full bg-[#1f252b]" style={{ opacity: index % 2 === 0 ? 1 : 0.34 }} />
             ))}
           </span>
           {!sidebarCollapsed && <span className="truncate text-[15px] font-black tracking-tight text-[#1f252b]">Nepfluence</span>}
-        </Link>
+        </button>
         {!sidebarCollapsed && (
           <button
             className="grid size-8 place-items-center rounded-full border border-[#ded8cf] text-[#6d746f] transition hover:bg-[#f2eee8]"

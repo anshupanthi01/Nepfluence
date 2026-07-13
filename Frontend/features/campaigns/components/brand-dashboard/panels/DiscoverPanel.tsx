@@ -21,7 +21,6 @@ import {
   Menu,
   MessageSquare,
   Megaphone,
-  MoreHorizontal,
   PlayCircle,
   Plus,
   Search,
@@ -34,9 +33,11 @@ import {
   WalletCards,
   X,
 } from "lucide-react"
-import { FormEvent, ReactNode, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { apiClient } from "@/lib/api-client"
+import { useClickOutside } from "@/hooks/useClickOutside"
+import { useEscapeKey } from "@/hooks/useEscapeKey"
 import {
   MarketplaceApplication as Application,
   MarketplaceCampaign as Campaign,
@@ -116,22 +117,14 @@ export function DiscoverPanel({
   onShortlist: (name: string) => void
 }) {
   const [view, setView] = useState<"find" | "selected" | "rejected" | "lookalikes">("find")
-  const [resultMode, setResultMode] = useState<"all" | "smart">("all")
   const [notice, setNotice] = useState("")
   const [platformFilterOpen, setPlatformFilterOpen] = useState(false)
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
   const [instagramFilter, setInstagramFilter] = useState(false)
   const [selectedPlatforms, setSelectedPlatforms] = useState<ConnectedPlatform[]>([])
-  const [includeBrandAccounts, setIncludeBrandAccounts] = useState(false)
-  const [affiliateOnly, setAffiliateOnly] = useState(false)
-  const [creatorGender, setCreatorGender] = useState<"all" | "female" | "male">("all")
-  const [creatorAge, setCreatorAge] = useState("")
-  const [creatorLanguage, setCreatorLanguage] = useState("")
-  const [geoLocation, setGeoLocation] = useState("")
   const [contactCreator, setContactCreator] = useState<Creator | null>(null)
   const [profileCreator, setProfileCreator] = useState<Creator | null>(null)
   const [contactTab, setContactTab] = useState<"channels" | "email" | "notes" | "profile">("channels")
-  const [contactMessage, setContactMessage] = useState("")
   const [emailSubject, setEmailSubject] = useState("")
   const [emailBody, setEmailBody] = useState("")
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -185,16 +178,8 @@ export function DiscoverPanel({
     selectCreator(creator)
     setContactCreator(creator)
     setContactTab("channels")
-    setContactMessage(`Hi ${creator.name}, we would love to discuss a campaign collaboration on Nepfluence.`)
     setEmailSubject(`Collaboration opportunity from Nepfluence`)
     setEmailBody(`Hi ${creator.name},\n\nWe are interested in working with you on an upcoming creator campaign. Your ${creator.niche} content looks like a strong fit for our brand.\n\nWould you be open to discussing the brief?\n\nThanks,\nNepfluence brand team`)
-  }
-
-  function sendInAppMessage() {
-    if (!contactCreator || !contactMessage.trim()) return
-    onShortlist(contactCreator.name)
-    setNotice(`In-app message prepared for ${contactCreator.name}.`)
-    setContactCreator(null)
   }
 
   async function sendEmail() {
@@ -226,12 +211,6 @@ export function DiscoverPanel({
     onFilter("ALL")
     setInstagramFilter(false)
     setSelectedPlatforms([])
-    setIncludeBrandAccounts(false)
-    setAffiliateOnly(false)
-    setCreatorGender("all")
-    setCreatorAge("")
-    setCreatorLanguage("")
-    setGeoLocation("")
     setNotice("Filters cleared.")
   }
 
@@ -249,9 +228,6 @@ export function DiscoverPanel({
     <section className="min-h-[calc(100vh-132px)] bg-[#f5f3ef]">
       <div className="sticky top-0 z-20 rounded-b-[22px] border border-t-0 border-[#e8e2d9] bg-[#fbfaf7]/95 px-4 py-3 backdrop-blur">
         <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-[#e8e2d9] pb-3">
-          <button className="h-9 rounded-full px-3 text-sm font-black text-[#1f252b]" type="button">
-            My creator list
-          </button>
           <TopTab active={view === "find"} label="Find creators" count={visibleCreators.length} onClick={() => setView("find")} />
           <TopTab active={view === "selected"} label="Selected" count={selectedHandles.length} onClick={() => setView("selected")} />
           <TopTab active={view === "rejected"} label="Rejected" count={rejectedHandles.length} onClick={() => setView("rejected")} />
@@ -312,27 +288,17 @@ export function DiscoverPanel({
               <PlatformFilterPopover
                 selectedPlatforms={selectedPlatforms}
                 onClear={clearFilters}
+                onClose={() => setPlatformFilterOpen(false)}
                 onTogglePlatform={togglePlatform}
               />
             )}
 
             {moreFiltersOpen && (
               <MoreFiltersPopover
-                affiliateOnly={affiliateOnly}
-                creatorAge={creatorAge}
-                creatorGender={creatorGender}
-                creatorLanguage={creatorLanguage}
                 filter={filter}
-                geoLocation={geoLocation}
-                includeBrandAccounts={includeBrandAccounts}
-                onAgeChange={setCreatorAge}
                 onClear={clearFilters}
+                onClose={() => setMoreFiltersOpen(false)}
                 onCountryChange={onFilter}
-                onGenderChange={setCreatorGender}
-                onGeoLocationChange={setGeoLocation}
-                onIncludeBrandAccountsChange={setIncludeBrandAccounts}
-                onLanguageChange={setCreatorLanguage}
-                onAffiliateOnlyChange={setAffiliateOnly}
               />
             )}
           </div>
@@ -356,10 +322,6 @@ export function DiscoverPanel({
       </div>
 
       <div className="mx-auto max-w-[1500px] px-4 py-4">
-        <div className="mb-3 inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-[#e8e2d9]">
-          <button className={`h-9 rounded-full px-4 text-xs font-black ${resultMode === "all" ? "bg-[#1f252b] text-white" : "text-[#69716b]"}`} type="button" onClick={() => setResultMode("all")}>All results</button>
-          <button className={`h-9 rounded-full px-4 text-xs font-black ${resultMode === "smart" ? "bg-[#1f252b] text-white" : "text-[#69716b]"}`} type="button" onClick={() => setResultMode("smart")}>Smart results</button>
-        </div>
         {notice && <p className="mb-3 rounded-[16px] bg-[#f0ece5] px-4 py-3 text-sm font-black text-[#1f252b]">{notice}</p>}
 
         <div className="grid gap-3">
@@ -414,9 +376,6 @@ export function DiscoverPanel({
                   <div className="mt-3 flex items-center gap-1.5">
                     <button className="grid size-7 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#1f252b]" type="button" aria-label={`Select ${creator.name}`} onClick={() => selectCreator(creator)}>
                       <UsersRound className="size-3.5" aria-hidden="true" />
-                    </button>
-                    <button className="grid size-7 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#1f252b]" type="button" aria-label={`More actions for ${creator.name}`} onClick={() => setNotice(`${creator.name}: more actions will include notes and campaign invite in the next MVP step.`)}>
-                      <MoreHorizontal className="size-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -481,14 +440,11 @@ export function DiscoverPanel({
           emailBody={emailBody}
           emailSubject={emailSubject}
           isSendingEmail={isSendingEmail}
-          message={contactMessage}
           tab={contactTab}
           onClose={() => setContactCreator(null)}
           onEmailBodyChange={setEmailBody}
           onEmailSubjectChange={setEmailSubject}
-          onMessageChange={setContactMessage}
           onSendEmail={sendEmail}
-          onSendMessage={sendInAppMessage}
           onTabChange={setContactTab}
         />
       )}
@@ -523,16 +479,27 @@ function TopTab({ active, label, count, onClick }: { active: boolean; label: str
 function PlatformFilterPopover({
   selectedPlatforms,
   onClear,
+  onClose,
   onTogglePlatform,
 }: {
   selectedPlatforms: ConnectedPlatform[]
   onClear: () => void
+  onClose: () => void
   onTogglePlatform: (platform: ConnectedPlatform) => void
 }) {
   const quickPlatforms = (Object.keys(platformLabels) as ConnectedPlatform[])
+  const popoverRef = useRef<HTMLDivElement>(null)
+  useClickOutside(true, popoverRef, onClose)
+  useEscapeKey(true, onClose)
 
   return (
-    <div className="absolute right-0 top-12 z-40 w-[min(600px,calc(100vw-32px))] overflow-hidden rounded-[18px] border border-[#ded8cf] bg-[#fbfaf7] shadow-[0_22px_70px_rgba(31,37,43,0.16)]">
+    <div ref={popoverRef} className="absolute right-0 top-12 z-40 w-[min(600px,calc(100vw-32px))] overflow-hidden rounded-[18px] border border-[#ded8cf] bg-[#fbfaf7] shadow-[0_22px_70px_rgba(31,37,43,0.16)]">
+      <div className="flex items-center justify-between border-b border-[#e8e2d9] px-4 py-3">
+        <p className="text-sm font-black text-[#1f252b]">Filter by channel</p>
+        <button className="grid size-8 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b] transition hover:border-[#1f252b] hover:text-[#1f252b]" type="button" aria-label="Close filter" onClick={onClose}>
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
       <div className="p-4">
         <p className="text-sm font-black text-[#1f252b]">Search across</p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -605,50 +572,30 @@ function PlatformFilterPopover({
 }
 
 function MoreFiltersPopover({
-  affiliateOnly,
-  creatorAge,
-  creatorGender,
-  creatorLanguage,
   filter,
-  geoLocation,
-  includeBrandAccounts,
-  onAffiliateOnlyChange,
-  onAgeChange,
   onClear,
+  onClose,
   onCountryChange,
-  onGenderChange,
-  onGeoLocationChange,
-  onIncludeBrandAccountsChange,
-  onLanguageChange,
 }: {
-  affiliateOnly: boolean
-  creatorAge: string
-  creatorGender: "all" | "female" | "male"
-  creatorLanguage: string
   filter: "ALL" | "NP" | "IN"
-  geoLocation: string
-  includeBrandAccounts: boolean
-  onAffiliateOnlyChange: (value: boolean) => void
-  onAgeChange: (value: string) => void
   onClear: () => void
+  onClose: () => void
   onCountryChange: (filter: "ALL" | "NP" | "IN") => void
-  onGenderChange: (value: "all" | "female" | "male") => void
-  onGeoLocationChange: (value: string) => void
-  onIncludeBrandAccountsChange: (value: boolean) => void
-  onLanguageChange: (value: string) => void
 }) {
-  return (
-    <div className="absolute right-0 top-12 z-40 w-[min(600px,calc(100vw-32px))] overflow-hidden rounded-[18px] border border-[#ded8cf] bg-[#fbfaf7] shadow-[0_22px_70px_rgba(31,37,43,0.16)]">
-      <div className="p-4">
-        <h3 className="text-sm font-black text-[#1f252b]">Filter by creator</h3>
+  const popoverRef = useRef<HTMLDivElement>(null)
+  useClickOutside(true, popoverRef, onClose)
+  useEscapeKey(true, onClose)
 
+  return (
+    <div ref={popoverRef} className="absolute right-0 top-12 z-40 w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-[18px] border border-[#ded8cf] bg-[#fbfaf7] shadow-[0_22px_70px_rgba(31,37,43,0.16)]">
+      <div className="flex items-center justify-between border-b border-[#e8e2d9] px-4 py-3">
+        <h3 className="text-sm font-black text-[#1f252b]">Filter by creator</h3>
+        <button className="grid size-8 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#69716b] transition hover:border-[#1f252b] hover:text-[#1f252b]" type="button" aria-label="Close filter" onClick={onClose}>
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
+      <div className="p-4">
         <div className="mt-3 divide-y divide-[#e8e2d9]">
-          <FilterRow label="Include brand accounts">
-            <FilterToggle checked={includeBrandAccounts} onChange={onIncludeBrandAccountsChange} />
-          </FilterRow>
-          <FilterRow label="Show only affiliate creators">
-            <FilterToggle checked={affiliateOnly} onChange={onAffiliateOnlyChange} />
-          </FilterRow>
           <FilterRow label="Creator country">
             <select
               className="h-9 min-w-[190px] rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b] outline-none focus:border-[#1f252b]"
@@ -660,46 +607,7 @@ function MoreFiltersPopover({
               <option value="IN">India</option>
             </select>
           </FilterRow>
-          <FilterRow label="Creator geolocation">
-            <div className="flex gap-2">
-              <input className="h-9 min-w-0 rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b] outline-none focus:border-[#1f252b]" value={geoLocation} onChange={(event) => onGeoLocationChange(event.target.value)} placeholder="i.e New York" />
-              <span className="inline-flex h-9 items-center rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b]">10 Km</span>
-            </div>
-          </FilterRow>
-          <FilterRow label="Creator language">
-            <div className="flex items-center gap-2">
-              <button className="text-xs font-black text-[#1f252b]" type="button" onClick={() => onLanguageChange("All")}>Select all</button>
-              <select className="h-9 min-w-[190px] rounded-[10px] border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#69716b] outline-none focus:border-[#1f252b]" value={creatorLanguage} onChange={(event) => onLanguageChange(event.target.value)}>
-                <option value="">Select language</option>
-                <option value="English">English</option>
-                <option value="Nepali">Nepali</option>
-                <option value="Hindi">Hindi</option>
-              </select>
-            </div>
-          </FilterRow>
-          <FilterRow label="Creator gender">
-            <div className="inline-flex rounded-full bg-[#f0ece5] p-1">
-              {(["all", "female", "male"] as const).map((gender) => (
-                <button key={gender} className={`h-8 rounded-full px-4 text-xs font-black capitalize ${creatorGender === gender ? "bg-white text-[#1f252b] shadow-sm" : "text-[#69716b]"}`} type="button" onClick={() => onGenderChange(gender)}>
-                  {gender}
-                </button>
-              ))}
-            </div>
-          </FilterRow>
-          <FilterRow label="Creator age">
-            <div className="flex flex-wrap justify-end gap-2">
-              {["0-17", "18-24", "25-34", "35-54"].map((age) => (
-                <button key={age} className={`h-8 rounded-full px-3 text-xs font-black transition ${creatorAge === age ? "bg-[#1f252b] text-white" : "bg-[#f0ece5] text-[#8a8175] hover:bg-[#e8e2d9]"}`} type="button" onClick={() => onAgeChange(creatorAge === age ? "" : age)}>
-                  {age}
-                </button>
-              ))}
-            </div>
-          </FilterRow>
         </div>
-      </div>
-
-      <div className="border-t border-[#e8e2d9] p-4">
-        <FilterPromo />
       </div>
 
       <div className="flex justify-end border-t border-[#e8e2d9] bg-[#f5f3ef] p-3">
@@ -747,20 +655,6 @@ function FilterRow({ children, label }: { children: ReactNode; label: string }) 
   )
 }
 
-function FilterToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <button
-      className={`relative h-6 w-11 rounded-full transition ${checked ? "bg-[#1f252b]" : "bg-[#d9dce3]"}`}
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-    >
-      <span className={`absolute top-1 size-4 rounded-full bg-white shadow transition ${checked ? "left-6" : "left-1"}`} />
-    </button>
-  )
-}
-
 function FilterPromo() {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[16px] border border-[#ded8cf] bg-white p-3">
@@ -780,33 +674,29 @@ function ContactModal({
   emailBody,
   emailSubject,
   isSendingEmail,
-  message,
   tab,
   onClose,
   onEmailBodyChange,
   onEmailSubjectChange,
-  onMessageChange,
   onSendEmail,
-  onSendMessage,
   onTabChange,
 }: {
   creator: Creator
   emailBody: string
   emailSubject: string
   isSendingEmail: boolean
-  message: string
   tab: "channels" | "email" | "notes" | "profile"
   onClose: () => void
   onEmailBodyChange: (value: string) => void
   onEmailSubjectChange: (value: string) => void
-  onMessageChange: (value: string) => void
   onSendEmail: () => void
-  onSendMessage: () => void
   onTabChange: (tab: "channels" | "email" | "notes" | "profile") => void
 }) {
+  useEscapeKey(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/30 p-4 backdrop-blur-[2px]">
-      <div className="flex h-[min(720px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.22)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f252b]/30 p-4 backdrop-blur-[2px]" onClick={onClose}>
+      <div className="flex h-[min(720px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.22)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex h-14 items-center justify-between border-b border-[#e8e2d9] px-4">
           <div className="flex items-center gap-2">
             <ModalTab active={tab === "channels"} label="Channels" onClick={() => onTabChange("channels")} />
@@ -838,7 +728,7 @@ function ContactModal({
                 <div className="size-20 rounded-full bg-cover bg-center shadow-[0_14px_32px_rgba(15,23,42,0.16)] ring-4 ring-white" style={{ backgroundImage: `url(${creator.image})` }} />
                 <h3 className="mt-5 text-lg font-black text-[#1f252b]">Ready to team up with {creator.name}?</h3>
                 <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">
-                  Start with an in-app message or prepare an email outreach draft for this creator.
+                  Prepare an email outreach draft for this creator, or learn how in-app messaging unlocks.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
                   <button className="h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white shadow-[0_10px_22px_rgba(31,37,43,0.16)]" type="button" onClick={() => onTabChange("email")}>
@@ -866,11 +756,13 @@ function ContactModal({
 
             {tab === "notes" && (
               <div className="mx-auto max-w-xl">
-                <p className="text-xs font-semibold text-[#69716b]">In-app message to {creator.name}</p>
-                <textarea className="mt-3 min-h-56 w-full resize-none rounded-[20px] border border-[#ded8cf] px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-[#1f252b]" value={message} onChange={(event) => onMessageChange(event.target.value)} />
-                <div className="mt-3 flex justify-end">
-                  <button className="h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white disabled:bg-[#ded8cf]" disabled={!message.trim()} type="button" onClick={onSendMessage}>
-                    Send in-app message
+                <div className="rounded-[20px] border border-dashed border-[#ded8cf] bg-white p-5 text-center">
+                  <p className="text-sm font-black text-[#1f252b]">In-app messaging isn&apos;t open yet with {creator.name}</p>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">
+                    Direct messages unlock once you&apos;ve invited {creator.name} to a campaign and accepted their application. Use email outreach for now to start the conversation.
+                  </p>
+                  <button className="mt-4 h-10 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white" type="button" onClick={() => onTabChange("email")}>
+                    Email instead
                   </button>
                 </div>
               </div>
@@ -953,10 +845,11 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
   const metrics = platformMetrics(creator, activePlatform)
   const samples = creatorWorkSamples.slice(0, 3)
   const heatValues = Array.from({ length: 42 }, (_, index) => ((index * creator.handle.length + activePlatform.length) % 10))
+  useEscapeKey(true, onClose)
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[12px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]">
+    <div className="fixed inset-0 z-50 bg-[#1f252b]/35 p-3 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[12px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-[#e8e2d9] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="size-11 shrink-0 overflow-hidden rounded-[8px] bg-[#eee8df] bg-cover bg-center" style={{ backgroundImage: `url(${creator.image})` }} />

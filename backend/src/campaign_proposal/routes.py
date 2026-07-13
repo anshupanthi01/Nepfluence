@@ -15,13 +15,61 @@ from src.campaign.enums import CampaignStatus
 
 from src.campaign_proposal import crud
 from src.campaign_proposal.enums import ProposalStatus
-from src.campaign_proposal.schemas import ProposalCreate, ProposalPublic
+from src.campaign_proposal.models import CampaignProposal
+from src.campaign_proposal.schemas import (
+    ProposalCampaignSummary,
+    ProposalCreate,
+    ProposalCreatorSummary,
+    ProposalPublic,
+)
+from src.collaboration import crud as collaboration_crud
 from src.conversations.routes import get_or_create_conversation
 
 # NOTE: adjust import path to your influencer profile model
 from src.influencer_profile.models import InfluencerProfile
+from src.influencer_profile.utils import country_code, profile_followers, profile_handle
 
 router = APIRouter(prefix="/proposals", tags=["campaign_proposals"])
+
+
+def _proposal_public(proposal: CampaignProposal) -> ProposalPublic:
+    creator = None
+    if proposal.influencer_profile:
+        influencer_profile = proposal.influencer_profile
+        creator = ProposalCreatorSummary(
+            id=influencer_profile.id,
+            user_id=influencer_profile.user_id,
+            full_name=influencer_profile.full_name,
+            handle=profile_handle(influencer_profile),
+            niche=getattr(influencer_profile.niche, "value", influencer_profile.niche),
+            country=country_code(getattr(influencer_profile.user, "country", None)),
+            followers=profile_followers(influencer_profile),
+        )
+
+    campaign_summary = None
+    if proposal.campaign:
+        campaign = proposal.campaign
+        campaign_summary = ProposalCampaignSummary(
+            id=campaign.id,
+            title=campaign.title,
+            brand_name=campaign.brand_profile.company_name if campaign.brand_profile else "Brand",
+            status=campaign.status,
+            budget_min=campaign.budget_min,
+            budget_max=campaign.budget_max,
+        )
+
+    return ProposalPublic(
+        id=proposal.id,
+        campaign_id=proposal.campaign_id,
+        influencer_profile_id=proposal.influencer_profile_id,
+        message=proposal.message,
+        proposed_budget=proposal.proposed_budget,
+        status=proposal.status,
+        created_at=proposal.created_at,
+        updated_at=proposal.updated_at,
+        creator=creator,
+        campaign=campaign_summary,
+    )
 
 
 async def _get_my_brand_profile(db: AsyncSession, current_user: CurrentUser) -> BrandProfile:
@@ -62,7 +110,8 @@ async def send_proposal(
     if existing:
         raise HTTPException(status_code=400, detail="You already sent a proposal for this campaign")
 
-    return await crud.create(db, campaign_id, influencer_profile.id, payload)
+    created = await crud.create(db, campaign_id, influencer_profile.id, payload)
+    return _proposal_public(created)
 
 
 @router.get("/me", response_model=List[ProposalPublic])
@@ -71,7 +120,8 @@ async def list_my_proposals(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     influencer_profile = await _get_my_influencer_profile(db, current_user)
-    return await crud.list_for_influencer(db, influencer_profile.id)
+    proposals = await crud.list_for_influencer(db, influencer_profile.id)
+    return [_proposal_public(proposal) for proposal in proposals]
 
 
 @router.post("/{proposal_id}/withdraw", response_model=ProposalPublic)
@@ -91,7 +141,8 @@ async def withdraw_proposal(
 
     # Simple approach: mark withdrawn (keeps history). Resend will still be blocked by unique.
     # If you want resend, we can DELETE instead.
-    return await crud.set_status(db, proposal, ProposalStatus.WITHDRAWN)
+    withdrawn = await crud.set_status(db, proposal, ProposalStatus.WITHDRAWN)
+    return _proposal_public(withdrawn)
 
 
 # ---------- Brand endpoints ----------
@@ -107,7 +158,8 @@ async def list_campaign_proposals(
     if not campaign or campaign.brand_profile_id != brand_profile.id:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    return await crud.list_for_campaign(db, campaign_id)
+    proposals = await crud.list_for_campaign(db, campaign_id)
+    return [_proposal_public(proposal) for proposal in proposals]
 
 
 @router.post("/{proposal_id}/accept", response_model=ProposalPublic)
@@ -131,7 +183,13 @@ async def accept_proposal(
 
     accepted = await crud.set_status(db, proposal, ProposalStatus.ACCEPTED)
     await get_or_create_conversation(db, campaign, proposal.influencer_profile_id)
-    return accepted
+
+    existing_collaboration = await collaboration_crud.get_by_proposal_id(db, proposal.id)
+    if not existing_collaboration:
+        payout_amount = proposal.proposed_budget if proposal.proposed_budget is not None else campaign.budget_max
+        await collaboration_crud.create_for_proposal(db, proposal.id, payout_amount)
+
+    return _proposal_public(accepted)
 
 
 @router.post("/{proposal_id}/reject", response_model=ProposalPublic)
@@ -153,4 +211,5 @@ async def reject_proposal(
     if proposal.status != ProposalStatus.PENDING:
         raise HTTPException(status_code=400, detail="Only pending proposals can be rejected")
 
-    return await crud.set_status(db, proposal, ProposalStatus.REJECTED)
+    rejected = await crud.set_status(db, proposal, ProposalStatus.REJECTED)
+    return _proposal_public(rejected)

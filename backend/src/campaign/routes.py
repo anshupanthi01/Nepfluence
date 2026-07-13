@@ -112,8 +112,7 @@ async def publish_my_campaign(
 
     campaign.status = CampaignStatus.PUBLISHED
     await db.commit()
-    await db.refresh(campaign)
-    return campaign
+    return await crud.get_campaign_by_id(db, campaign.id)
 
 
 @router.post("/me/{campaign_id}/close", response_model=CampaignPublic)
@@ -130,8 +129,24 @@ async def close_my_campaign(
 
     campaign.status = CampaignStatus.CLOSED
     await db.commit()
-    await db.refresh(campaign)
-    return campaign
+    return await crud.get_campaign_by_id(db, campaign.id)
+
+
+@router.post("/me/{campaign_id}/complete", response_model=CampaignPublic)
+async def complete_my_campaign(
+    campaign_id: int,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    brand_profile = await _get_my_brand_profile(db, current_user)
+
+    campaign = await crud.get_campaign_by_id(db, campaign_id)
+    if not campaign or campaign.brand_profile_id != brand_profile.id:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    campaign.status = CampaignStatus.COMPLETED
+    await db.commit()
+    return await crud.get_campaign_by_id(db, campaign.id)
 
 
 @router.delete("/me/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -182,12 +197,11 @@ async def upload_campaign_picture(
     campaign.image_file = new_filename
 
     await db.commit()
-    await db.refresh(campaign)
 
     if old_filename:
         delete_campaign_image(old_filename)
 
-    return campaign
+    return await crud.get_campaign_by_id(db, campaign.id)
 
 
 @router.delete("/me/{campaign_id}/picture", response_model=CampaignPublic)
@@ -208,10 +222,9 @@ async def delete_campaign_picture(
 
     campaign.image_file = None
     await db.commit()
-    await db.refresh(campaign)
 
     delete_campaign_image(old_filename)
-    return campaign
+    return await crud.get_campaign_by_id(db, campaign.id)
 
 
 # -----------------------
