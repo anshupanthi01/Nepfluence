@@ -13,6 +13,8 @@ export function PaymentsPanel({
   ledger,
   onDeposit,
   onApprove,
+  onMessage,
+  depositErrors,
 }: {
   collaborations: Collaboration[]
   paymentTotal: number
@@ -20,6 +22,8 @@ export function PaymentsPanel({
   ledger: MarketplaceLedgerEntry[]
   onDeposit: (id: number) => void
   onApprove: (id: number) => void
+  onMessage: (id: number) => void
+  depositErrors?: Record<number, string>
 }) {
   const releasedTotal = collaborations.filter((item) => item.escrow === "RELEASED").reduce((sum, item) => sum + item.payout, 0)
 
@@ -56,7 +60,7 @@ export function PaymentsPanel({
           )}
         </div>
       </section>
-      <CollaborationsPanel collaborations={collaborations} onDeposit={onDeposit} onApprove={onApprove} />
+      <CollaborationsPanel collaborations={collaborations} onDeposit={onDeposit} onApprove={onApprove} onMessage={onMessage} depositErrors={depositErrors} />
     </section>
   )
 }

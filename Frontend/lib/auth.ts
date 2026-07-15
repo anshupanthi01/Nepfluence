@@ -104,6 +104,7 @@ export function completeBrandOnboarding(userId?: string) {
 
 export function nextRouteForSession(session: AuthSession | null) {
   if (!session) return "/login"
+  if (session.role === "admin") return "/admin/dashboard"
   if (session.role === "creator" && !hasCompletedCreatorOnboarding(session.userId)) {
     return "/creator/onboarding"
   }

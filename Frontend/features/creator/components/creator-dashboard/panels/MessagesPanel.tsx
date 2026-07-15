@@ -32,8 +32,9 @@ export function MessagesPanel({
   const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([])
   const activeConversation = conversations.find((conversation) => conversation.id === selectedConversationId) ?? conversations[0]
   const roomMessages = messages
-  const selectedInRoom = selectedMessageIds.filter((id) => roomMessages.some((item) => item.id === id))
-  const allSelected = roomMessages.length > 0 && selectedInRoom.length === roomMessages.length
+  const ownMessages = roomMessages.filter((item) => item.sender_role === "influencer")
+  const selectedInRoom = selectedMessageIds.filter((id) => ownMessages.some((item) => item.id === id))
+  const allSelected = ownMessages.length > 0 && selectedInRoom.length === ownMessages.length
 
   function toggleMessageSelection(messageId: number) {
     setSelectedMessageIds((current) =>
@@ -43,7 +44,7 @@ export function MessagesPanel({
 
   function toggleAllMessages() {
     setSelectedMessageIds((current) => {
-      const roomIds = roomMessages.map((item) => item.id)
+      const roomIds = ownMessages.map((item) => item.id)
       if (roomIds.every((id) => current.includes(id))) {
         return current.filter((id) => !roomIds.includes(id))
       }
@@ -110,7 +111,7 @@ export function MessagesPanel({
               </button>
             )}
           </div>
-          {roomMessages.length > 0 && (
+          {ownMessages.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button className="h-8 rounded-full border border-[#ded8cf] bg-white px-3 text-xs font-black text-[#505852]" type="button" onClick={toggleAllMessages}>
                 {allSelected ? "Clear selection" : "Select all"}
@@ -126,20 +127,26 @@ export function MessagesPanel({
         </div>
 
         <div className="min-h-[360px] flex-1 space-y-3 overflow-y-auto p-5">
-          {roomMessages.map((item) => (
-            <div key={item.id} className={item.sender_role === "influencer" ? "ml-auto max-w-md" : "max-w-md"}>
+          {roomMessages.map((item) => {
+            const isOwnMessage = item.sender_role === "influencer"
+            return (
+            <div key={item.id} className={isOwnMessage ? "ml-auto max-w-md" : "max-w-md"}>
               <div className="mb-1 flex items-center justify-between gap-2 px-1">
                 <label className="flex min-w-0 items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#8a8175]">
-                  <input className="size-4 accent-[#1f252b]" type="checkbox" checked={selectedMessageIds.includes(item.id)} onChange={() => toggleMessageSelection(item.id)} />
+                  {isOwnMessage && (
+                    <input className="size-4 accent-[#1f252b]" type="checkbox" checked={selectedMessageIds.includes(item.id)} onChange={() => toggleMessageSelection(item.id)} />
+                  )}
                   <span className="truncate">{item.sender_name}</span>
                 </label>
-                <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => confirmDelete([item.id])}>
-                  <Trash2 className="size-3.5" aria-hidden="true" />
-                </button>
+                {isOwnMessage && (
+                  <button className="grid size-7 place-items-center rounded-full text-[#8a8175] transition hover:bg-[#fff0f0] hover:text-[#9f1d1d]" type="button" aria-label="Delete message" onClick={() => confirmDelete([item.id])}>
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                  </button>
+                )}
               </div>
-              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${item.sender_role === "influencer" ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>{item.body}</p>
+              <p className={`rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${isOwnMessage ? "bg-[#1f252b] text-white" : "bg-white text-[#505852]"}`}>{item.body}</p>
             </div>
-          ))}
+          )})}
           {roomMessages.length === 0 && (
             <div className="grid min-h-[300px] place-items-center rounded-[24px] border border-dashed border-[#ded8cf] bg-white/60 p-8 text-center">
               <div>

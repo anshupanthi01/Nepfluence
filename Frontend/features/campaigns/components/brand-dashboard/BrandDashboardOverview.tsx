@@ -10,6 +10,7 @@ import {
   hideMessage as hideMessageApi,
   listConversations,
   listMessages as listMessagesApi,
+  openConversation as openConversationApi,
   sendMessage as sendMessageApi,
 } from "@/features/conversations/api/conversationApi"
 import type { BrandConversation } from "./panels/MessagesPanel"
@@ -374,6 +375,7 @@ export default function BrandDashboardOverview() {
     }
   }, [conversations, activeConversationId])
 
+  const [depositErrors, setDepositErrors] = useState<Record<number, string>>({})
   const [realCollaborations, setRealCollaborations] = useState<RealCollaboration[]>([])
   const [realWallet, setRealWallet] = useState<RealWallet | null>(null)
   const [realLedger, setRealLedger] = useState<RealLedgerEntry[]>([])
@@ -454,17 +456,17 @@ export default function BrandDashboardOverview() {
 
   const analytics = useMemo(() => {
     const liveCampaigns = campaigns.filter((campaign) => campaign.status === "PUBLISHED").length
-    const totalApplications = campaigns.reduce((sum, campaign) => sum + campaign.applications, 0)
+    const pendingApplicationsCount = applications.filter((application) => application.status === "PENDING").length
     const escrowHeld = collaborations.filter((collab) => collab.escrow === "HELD").length
     const reach = campaigns.reduce((sum, campaign) => sum + campaign.reach, 0)
 
     return [
       { label: "Live campaigns", value: liveCampaigns.toString(), detail: "Published and visible", icon: Megaphone },
-      { label: "Applications", value: totalApplications.toString(), detail: "Pending review", icon: ClipboardList },
+      { label: "Applications", value: pendingApplicationsCount.toString(), detail: "Pending review", icon: ClipboardList },
       { label: "Escrow held", value: escrowHeld.toString(), detail: "Chat unlocked", icon: ShieldCheck },
-      { label: "Tracked reach", value: `${Math.round(reach / 1000)}K`, detail: "MVP campaign estimate", icon: UsersRound },
+      { label: "Tracked reach", value: reach > 0 ? `${Math.round(reach / 1000)}K` : "0", detail: "MVP campaign estimate", icon: UsersRound },
     ]
-  }, [campaigns, collaborations])
+  }, [campaigns, applications, collaborations])
 
   const filteredCreators = (creatorFilter === "ALL" ? directoryCreators : directoryCreators.filter((creator) => creator.country === creatorFilter)).filter((creator) => {
     const query = creatorSearch.trim().toLowerCase()
@@ -590,13 +592,21 @@ export default function BrandDashboardOverview() {
   }
 
   function depositEscrow(id: number) {
+    setDepositErrors((current) => {
+      if (!(id in current)) return current
+      const { [id]: _removed, ...rest } = current
+      return rest
+    })
+
     void (async () => {
       try {
         await depositEscrowApi(id)
         refreshCollaborations()
         addActivity("Escrow deposited. Collaboration chat is unlocked.", "green")
       } catch (error) {
-        addActivity(error instanceof Error ? error.message : "Could not deposit escrow.", "red")
+        const message = error instanceof Error ? error.message : "Could not deposit escrow."
+        addActivity(message, "red")
+        setDepositErrors((current) => ({ ...current, [id]: message }))
       }
     })()
   }
@@ -609,6 +619,38 @@ export default function BrandDashboardOverview() {
         addActivity("Deliverable approved. Payment released.", "green")
       } catch (error) {
         addActivity(error instanceof Error ? error.message : "Could not approve deliverable.", "red")
+      }
+    })()
+  }
+
+  function messageCreatorAboutApplication(applicationId: number) {
+    const proposal = realProposals.find((item) => item.id === applicationId)
+    if (!proposal || proposal.status !== "accepted") return
+
+    void (async () => {
+      try {
+        const conversation = await openConversationApi(proposal.campaign_id, proposal.influencer_profile_id)
+        refreshConversations()
+        setSelectedConversationId(conversation.id)
+        goTo("Messages")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not open conversation.", "red")
+      }
+    })()
+  }
+
+  function messageCreatorAboutCollaboration(collabId: number) {
+    const collab = realCollaborations.find((item) => item.id === collabId)
+    if (!collab?.campaign || !collab.creator) return
+
+    void (async () => {
+      try {
+        const conversation = await openConversationApi(collab.campaign!.id, collab.creator!.id)
+        refreshConversations()
+        setSelectedConversationId(conversation.id)
+        goTo("Messages")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not open conversation.", "red")
       }
     })()
   }
@@ -710,8 +752,8 @@ export default function BrandDashboardOverview() {
         <CampaignList campaigns={campaigns} onPublish={publishCampaign} onCreate={() => setCampaignModalOpen(true)} onManage={openCampaignManager} />
       )}
 
-      {currentSection === "Applications" && <ApplicationQueue applications={applications} campaigns={campaigns} onReview={reviewApplication} showResolved />}
-      {currentSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
+      {currentSection === "Applications" && <ApplicationQueue applications={applications} campaigns={campaigns} onReview={reviewApplication} onMessage={messageCreatorAboutApplication} showResolved />}
+      {currentSection === "Collaborations" && <CollaborationsPanel collaborations={collaborations} onDeposit={depositEscrow} onApprove={approveDeliverable} onMessage={messageCreatorAboutCollaboration} depositErrors={depositErrors} />}
 
       {currentSection === "Messages" && (
         <MessagesPanel
@@ -742,7 +784,7 @@ export default function BrandDashboardOverview() {
         />
       )}
 
-      {currentSection === "Payments" && <PaymentsPanel collaborations={collaborations} paymentTotal={paymentTotal} wallet={brandWallet} ledger={brandLedger} onDeposit={depositEscrow} onApprove={approveDeliverable} />}
+      {currentSection === "Payments" && <PaymentsPanel collaborations={collaborations} paymentTotal={paymentTotal} wallet={brandWallet} ledger={brandLedger} onDeposit={depositEscrow} onApprove={approveDeliverable} onMessage={messageCreatorAboutCollaboration} depositErrors={depositErrors} />}
       {currentSection === "Brand Profile" && <BrandProfilePanel campaigns={campaigns} collaborations={collaborations} />}
       {currentSection === "Trust & Reports" && <TrustPanel collaborations={collaborations} />}
 

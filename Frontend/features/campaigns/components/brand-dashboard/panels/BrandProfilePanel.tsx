@@ -36,7 +36,14 @@ import {
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { changePassword, updateAccount } from "@/features/account/api/accountApi"
-import { createMyBrandProfile, getMyBrandProfile, updateMyBrandProfile } from "@/features/brand-profile/api/brandProfileApi"
+import {
+  createMyBrandProfile,
+  deleteBrandLogo,
+  getMyBrandProfile,
+  updateMyBrandProfile,
+  uploadBrandLogo,
+} from "@/features/brand-profile/api/brandProfileApi"
+import { apiBaseUrl } from "@/lib/api-client"
 import { readMockSession, updateStoredSession } from "@/lib/auth"
 import {
   MarketplaceApplication as Application,
@@ -81,7 +88,9 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
   const session = readMockSession()
   const defaultBrandName = session?.username || titleFromEmail(session?.email)
   const liveCampaigns = campaigns.filter((campaign) => campaign.status === "PUBLISHED").length
-  const totalSpend = collaborations.reduce((sum, collab) => sum + collab.payout, 0)
+  const totalSpend = collaborations
+    .filter((collab) => collab.escrow === "HELD" || collab.escrow === "RELEASED")
+    .reduce((sum, collab) => sum + collab.payout, 0)
   const [profileId, setProfileId] = useState<number | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -90,6 +99,9 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [statusMessage, setStatusMessage] = useState("")
   const [passwordMessage, setPasswordMessage] = useState("")
+  const [logoPath, setLogoPath] = useState<string | null>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [logoMessage, setLogoMessage] = useState("")
   const [accountForm, setAccountForm] = useState({
     username: defaultBrandName,
     email: session?.email ?? "",
@@ -116,6 +128,7 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
       const profile = await getMyBrandProfile()
       if (!profile) return
       setProfileId(profile.id)
+      setLogoPath(profile.logo_path)
       setForm({
         company_name: profile.company_name,
         industry: profile.industry ?? "",
@@ -127,6 +140,32 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
       setStatusMessage(error instanceof Error ? error.message : "Unable to load brand profile.")
     }
   }, [profileLoaded])
+
+  async function handleLogoUpload(file: File) {
+    setIsUploadingLogo(true)
+    setLogoMessage("")
+    try {
+      const profile = await uploadBrandLogo(file)
+      setLogoPath(profile.logo_path)
+    } catch (error) {
+      setLogoMessage(error instanceof Error ? error.message : "Unable to upload logo.")
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
+  async function handleLogoRemove() {
+    setIsUploadingLogo(true)
+    setLogoMessage("")
+    try {
+      const profile = await deleteBrandLogo()
+      setLogoPath(profile.logo_path)
+    } catch (error) {
+      setLogoMessage(error instanceof Error ? error.message : "Unable to remove logo.")
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
 
   async function saveProfile() {
     setIsSaving(true)
@@ -208,8 +247,54 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
         <div className="grid gap-5 border-b border-[#e8e2d9] p-5 lg:grid-cols-[1fr_360px]">
           <div className="flex flex-col justify-between gap-8">
             <div className="flex items-start gap-4">
-              <div className="grid size-20 place-items-center rounded-[18px] border border-[#e8e2d9] bg-white text-2xl font-black tracking-tight text-[#1f252b] shadow-sm">
-                {initials(form.company_name)}
+              <div className="flex flex-col items-center gap-2">
+                {logoPath ? (
+                  <img
+                    src={`${apiBaseUrl}${logoPath}`}
+                    alt={`${form.company_name} logo`}
+                    className="size-20 rounded-[18px] border border-[#e8e2d9] object-cover shadow-sm"
+                  />
+                ) : (
+                  <div className="grid size-20 place-items-center rounded-[18px] border border-[#e8e2d9] bg-white text-2xl font-black tracking-tight text-[#1f252b] shadow-sm">
+                    {initials(form.company_name)}
+                  </div>
+                )}
+                {isEditing && (
+                  <div className="flex flex-col items-center gap-1">
+                    <label
+                      htmlFor="brand-logo-input"
+                      className={`inline-flex items-center gap-1 rounded-full border border-[#ded8cf] px-2.5 py-1 text-[10px] font-black text-[#1f252b] ${
+                        profileId && !isUploadingLogo ? "cursor-pointer hover:bg-[#f0ece5]" : "cursor-not-allowed opacity-50"
+                      }`}
+                    >
+                      <Upload className="size-3" aria-hidden="true" />
+                      {isUploadingLogo ? "Uploading..." : logoPath ? "Change logo" : "Upload logo"}
+                    </label>
+                    <input
+                      id="brand-logo-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={!profileId || isUploadingLogo}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0]
+                        event.target.value = ""
+                        if (file) void handleLogoUpload(file)
+                      }}
+                    />
+                    {logoPath && (
+                      <button
+                        type="button"
+                        className="text-[10px] font-black text-[#8a8175] underline-offset-2 hover:underline disabled:opacity-50"
+                        disabled={isUploadingLogo}
+                        onClick={() => void handleLogoRemove()}
+                      >
+                        Remove logo
+                      </button>
+                    )}
+                    {!profileId && <p className="max-w-[9rem] text-center text-[10px] font-semibold text-[#8a8175]">Save your profile before uploading a logo</p>}
+                  </div>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="inline-flex items-center gap-1 rounded-full bg-[#f0ece5] px-2.5 py-1 text-[11px] font-black text-[#4d5751]">
@@ -218,6 +303,7 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
                 </p>
                 <h2 className="mt-3 text-3xl font-black tracking-tight text-[#1f252b]">{form.company_name}</h2>
                 <p className="mt-1 text-sm font-semibold text-[#69716b]">{form.industry || "Industry not set"} - {form.company_size || "Location not set"}</p>
+                {logoMessage && <p className="mt-1 text-xs font-black text-[#b34141]">{logoMessage}</p>}
               </div>
             </div>
 
@@ -318,7 +404,7 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <MiniReviewStat label="Live" value={liveCampaigns.toString()} />
                 <MiniReviewStat label="Spend" value={money(totalSpend)} />
-                <MiniReviewStat label="Rating" value={collaborations.length ? "Active" : "New"} />
+                <MiniReviewStat label="Status" value={collaborations.length ? "Active" : "New"} />
               </div>
               <div className="mt-4 space-y-2 text-xs font-bold text-[#505852]">
                 <p className="flex items-center gap-2 rounded-[16px] bg-[#fbfaf7] p-3"><ShieldCheck className="size-4 text-[#16864f]" /> {collaborations.length ? "Escrow-backed collaborations active" : "No collaborations yet"}</p>
@@ -357,7 +443,15 @@ export function BrandProfilePanel({ campaigns, collaborations }: { campaigns: Ca
             <div className="h-28 bg-cover bg-center" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=80)" }} />
             <div className="p-3">
               <div className="flex items-center gap-3">
-                <div className="grid size-10 place-items-center rounded-[14px] bg-[#1f252b] text-xs font-black text-white">{initials(form.company_name)}</div>
+                {logoPath ? (
+                  <img
+                    src={`${apiBaseUrl}${logoPath}`}
+                    alt={`${form.company_name} logo`}
+                    className="size-10 rounded-[14px] object-cover"
+                  />
+                ) : (
+                  <div className="grid size-10 place-items-center rounded-[14px] bg-[#1f252b] text-xs font-black text-white">{initials(form.company_name)}</div>
+                )}
                 <div>
                   <p className="text-sm font-black">{form.company_name}</p>
                   <p className="text-xs font-semibold text-[#69716b]">{form.industry || "Brand"}</p>

@@ -1,6 +1,6 @@
 "use client"
 
-import { ExternalLink, PlayCircle } from "lucide-react"
+import { ExternalLink, MessageSquare, PlayCircle } from "lucide-react"
 import type { MarketplaceCollaboration as Collaboration } from "@/features/shared/marketplaceStore"
 import { statusClass } from "../brand-dashboard.shared"
 import { MiniReviewStat } from "./ReviewStats"
@@ -9,10 +9,14 @@ export function CollaborationsPanel({
   collaborations,
   onDeposit,
   onApprove,
+  onMessage,
+  depositErrors,
 }: {
   collaborations: Collaboration[]
   onDeposit: (id: number) => void
   onApprove: (id: number) => void
+  onMessage: (id: number) => void
+  depositErrors?: Record<number, string>
 }) {
   return (
     <section className="rounded-[24px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-sm">
@@ -92,7 +96,14 @@ export function CollaborationsPanel({
                   Approve deliverable
                 </button>
               )}
+              <button className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#ded8cf] bg-white px-4 text-xs font-black text-[#505852] transition hover:border-[#1f252b] hover:text-[#1f252b]" type="button" onClick={() => onMessage(collab.id)}>
+                <MessageSquare className="size-3.5" aria-hidden="true" />
+                Message
+              </button>
             </div>
+            {depositErrors?.[collab.id] && (
+              <p className="mt-2 text-xs font-bold text-[#9f1d1d]">{depositErrors[collab.id]}</p>
+            )}
           </article>
         ))}
         {collaborations.length === 0 && (

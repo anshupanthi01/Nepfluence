@@ -9,6 +9,7 @@ from src.database import Base
 if TYPE_CHECKING:
     from src.brand_profile.models import BrandProfile
     from src.influencer_profile.models import InfluencerProfile
+    from src.admin.models import AdminProfile
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     INFLUENCER="influencer"
@@ -46,6 +47,8 @@ class User(Base):
     )
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     reset_tokens:Mapped[list[PasswordResetToken]]=relationship(
         back_populates="user",
         cascade="all,delete-orphan",
@@ -64,7 +67,14 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
-    
+
+    admin_profile: Mapped["AdminProfile"] = relationship(
+        "AdminProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     @property
     def image_path(self)->str:
         if self.image_file:

@@ -11,6 +11,8 @@ export type BrandProfile = {
   industry: string | null
   company_size: string | null
   is_verified: boolean
+  logo_file: string | null
+  logo_path: string | null
 }
 
 export type BrandProfilePayload = {
@@ -45,4 +47,17 @@ export function updateMyBrandProfile(payload: Partial<BrandProfilePayload>) {
     method: "PATCH",
     body: JSON.stringify(payload),
   })
+}
+
+export function uploadBrandLogo(file: File) {
+  const formData = new FormData()
+  formData.append("file", file)
+  return apiClient<BrandProfile>("/brand-profile/me/logo", {
+    method: "PATCH",
+    body: formData,
+  })
+}
+
+export function deleteBrandLogo() {
+  return apiClient<BrandProfile>("/brand-profile/me/logo", { method: "DELETE" })
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { ApplicationStatus, MarketplaceApplication as Application, MarketplaceCampaign as Campaign } from "@/features/shared/marketplaceStore"
 import { creatorImage, statusClass } from "../brand-dashboard.shared"
@@ -8,11 +9,13 @@ export function ApplicationQueue({
   applications,
   campaigns,
   onReview,
+  onMessage,
   showResolved = false,
 }: {
   applications: Application[]
   campaigns: Campaign[]
   onReview: (id: number, status: ApplicationStatus) => void
+  onMessage?: (id: number) => void
   showResolved?: boolean
 }) {
   const visibleApplications = showResolved ? applications : applications.filter((application) => application.status === "PENDING")
@@ -55,6 +58,12 @@ export function ApplicationQueue({
                       Reject
                     </Button>
                   </>
+                )}
+                {application.status === "ACCEPTED" && onMessage && (
+                  <Button className="h-9 rounded-full border-[#ded8cf] px-4 text-xs font-black text-[#505852] hover:border-[#1f252b] hover:text-[#1f252b]" variant="outline" type="button" onClick={() => onMessage(application.id)}>
+                    <MessageSquare className="size-3.5" aria-hidden="true" />
+                    Message
+                  </Button>
                 )}
               </div>
             </div>

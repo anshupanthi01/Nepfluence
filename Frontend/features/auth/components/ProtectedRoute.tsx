@@ -13,6 +13,7 @@ const sessionKey = "nepfluence-session"
 const pendingSessionSnapshot = "__nepfluence_pending_session__"
 
 function defaultDashboard(role: UserRole) {
+  if (role === "admin") return "/admin/dashboard"
   return role === "creator" ? "/creator/dashboard" : "/dashboard"
 }
 
@@ -62,6 +63,10 @@ export default function ProtectedRoute({ allowedRoles, children }: ProtectedRout
     if (isCheckingSession) return
 
     if (!session) {
+      if (pathname.startsWith("/admin")) {
+        router.replace("/admin-login")
+        return
+      }
       const role = pathname.startsWith("/creator") ? "creator" : "brand"
       router.replace(`/login?role=${role}`)
       return

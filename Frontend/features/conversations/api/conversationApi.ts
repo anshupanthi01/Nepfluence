@@ -38,6 +38,13 @@ export function listConversations(campaignId: number) {
   return apiClient<Conversation[]>(`/campaigns/${campaignId}/conversations`)
 }
 
+export function openConversation(campaignId: number, influencerProfileId?: number) {
+  return apiClient<Conversation>(`/campaigns/${campaignId}/conversations/open`, {
+    method: "POST",
+    body: JSON.stringify({ influencer_profile_id: influencerProfileId }),
+  })
+}
+
 export function listMessages(campaignId: number, conversationId: number) {
   return apiClient<Message[]>(`/campaigns/${campaignId}/conversations/${conversationId}/messages`)
 }

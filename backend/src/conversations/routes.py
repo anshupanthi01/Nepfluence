@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import CurrentUser
@@ -13,6 +13,7 @@ from src.campaign.models import Campaign
 from src.conversations.models import Conversation, Message
 from src.conversations.schemas import (
     ConversationCreatorPublic,
+    ConversationOpenRequest,
     ConversationPublic,
     MessageCreate,
     MessagePublic,
@@ -187,6 +188,41 @@ async def list_campaign_conversations(
     return [await _conversation_public(db, conversation, current_user) for conversation in result.scalars().all()]
 
 
+@router.post("/open", response_model=ConversationPublic)
+async def open_conversation(
+    campaign_id: int,
+    payload: ConversationOpenRequest,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    campaign, brand_profile, influencer_profile = await _get_authorized_campaign(db, campaign_id, current_user)
+
+    if current_user.role == UserRole.INFLUENCER:
+        if not influencer_profile:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Create influencer profile first")
+        target_influencer_id = influencer_profile.id
+    else:
+        if not payload.influencer_profile_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="influencer_profile_id is required")
+        target_influencer_id = payload.influencer_profile_id
+
+    conversation = await get_or_create_conversation(db, campaign, target_influencer_id)
+
+    changed = False
+    if current_user.role == UserRole.BRAND and conversation.hidden_for_brand_at is not None:
+        conversation.hidden_for_brand_at = None
+        changed = True
+    elif current_user.role == UserRole.INFLUENCER and conversation.hidden_for_creator_at is not None:
+        conversation.hidden_for_creator_at = None
+        changed = True
+
+    if changed:
+        await db.commit()
+        await db.refresh(conversation)
+
+    return await _conversation_public(db, conversation, current_user)
+
+
 @router.get("/{conversation_id}/messages", response_model=list[MessagePublic])
 async def list_conversation_messages(
     campaign_id: int,
@@ -243,6 +279,25 @@ async def hide_conversation(
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
+    await db.execute(
+        update(Message)
+        .where(
+            Message.conversation_id == conversation.id,
+            Message.sender_user_id == current_user.id,
+            Message.deleted_for_sender_at.is_(None),
+        )
+        .values(deleted_for_sender_at=now)
+    )
+    await db.execute(
+        update(Message)
+        .where(
+            Message.conversation_id == conversation.id,
+            Message.sender_user_id != current_user.id,
+            Message.deleted_for_recipient_at.is_(None),
+        )
+        .values(deleted_for_recipient_at=now)
+    )
+
     await db.commit()
     await db.refresh(conversation)
     return await _conversation_public(db, conversation, current_user)
@@ -266,6 +321,8 @@ async def delete_message(
     message = result.scalars().first()
     if not message:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    if message.sender_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only delete messages you sent")
 
     await db.delete(message)
     await db.commit()

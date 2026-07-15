@@ -46,12 +46,16 @@ import { type Collaboration } from "./creator-dashboard.shared"
 export function DeliverableSubmissionModal({
   collab,
   form,
+  error,
+  submitting = false,
   onChange,
   onClose,
   onSubmit,
 }: {
   collab: Collaboration
   form: Omit<DeliverableSubmission, "submittedAt">
+  error?: string | null
+  submitting?: boolean
   onChange: (form: Omit<DeliverableSubmission, "submittedAt">) => void
   onClose: () => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
@@ -138,12 +142,13 @@ export function DeliverableSubmissionModal({
           </aside>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-[#edf0f6] p-5">
-          <Button className="h-10 rounded-[8px] px-4 text-sm font-black" variant="outline" type="button" onClick={onClose}>
+        <div className="flex items-center justify-end gap-3 border-t border-[#edf0f6] p-5">
+          {error && <p className="mr-auto text-sm font-bold text-[#b83232]">{error}</p>}
+          <Button className="h-10 rounded-[8px] px-4 text-sm font-black" variant="outline" type="button" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button className="h-10 rounded-[8px] bg-[#6174f8] px-4 text-sm font-black text-white hover:bg-[#5268df]" type="submit">
-            Submit for brand review
+          <Button className="h-10 rounded-[8px] bg-[#6174f8] px-4 text-sm font-black text-white hover:bg-[#5268df]" type="submit" disabled={submitting}>
+            {submitting ? "Submitting…" : "Submit for brand review"}
           </Button>
         </div>
       </form>

@@ -1,33 +1,19 @@
-import os
-import uuid
-
-from PIL import Image
-from io import BytesIO
+from src.shared.image_utils import ensure_media_dir as _ensure_media_dir
+from src.shared.image_utils import process_image, delete_image
 
 MEDIA_DIR = "media/brand_post"
 
 
 def ensure_media_dir() -> None:
-    os.makedirs(MEDIA_DIR, exist_ok=True)
+    _ensure_media_dir(MEDIA_DIR)
 
 
 def process_campaign_image(content: bytes) -> str:
     """
     Validates and saves image. Returns stored filename.
     """
-    ensure_media_dir()
-
-    img = Image.open(BytesIO(content))
-    img = img.convert("RGB")  # normalize
-
-    filename = f"{uuid.uuid4().hex}.jpg"
-    path = os.path.join(MEDIA_DIR, filename)
-    img.save(path, format="JPEG", quality=85)
-
-    return filename
+    return process_image(content, MEDIA_DIR)
 
 
 def delete_campaign_image(filename: str) -> None:
-    path = os.path.join(MEDIA_DIR, filename)
-    if os.path.exists(path):
-        os.remove(path)
+    delete_image(filename, MEDIA_DIR)

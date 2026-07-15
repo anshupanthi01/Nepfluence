@@ -10,6 +10,7 @@ import {
   hideMessage as hideMessageApi,
   listConversations,
   listMessages as listMessagesApi,
+  openConversation as openConversationApi,
   sendMessage as sendMessageApi,
 } from "@/features/conversations/api/conversationApi"
 import type { CreatorConversation } from "./panels/MessagesPanel"
@@ -210,6 +211,8 @@ export default function CreatorDashboardOverview() {
   const [conversationsReloadToken, setConversationsReloadToken] = useState(0)
   const [submissionCollab, setSubmissionCollab] = useState<Collaboration | null>(null)
   const [submissionForm, setSubmissionForm] = useState(emptySubmissionForm)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
+  const [submittingDeliverable, setSubmittingDeliverable] = useState(false)
   const [profileRequiredOpen, setProfileRequiredOpen] = useState(false)
   const [creatorProfile, setCreatorProfile] = useState<CreatorWorkspaceProfile>(() => emptyCreatorProfile(session))
   const [activities, setActivities] = useState<Activity[]>([])
@@ -547,11 +550,21 @@ export default function CreatorDashboardOverview() {
 
   function messageBrandAboutCampaign(campaignId: number, _draftMessage: string) {
     const campaign = campaigns.find((item) => item.id === campaignId)
-    if (campaign?.status === "ACCEPTED") {
-      goTo("Messages")
+    if (campaign?.status !== "ACCEPTED") {
+      addActivity(`Messaging with ${campaign?.brand ?? "the brand"} unlocks after they accept your application.`, "amber")
       return
     }
-    addActivity(`Messaging with ${campaign?.brand ?? "the brand"} unlocks after they accept your application.`, "amber")
+
+    void (async () => {
+      try {
+        const conversation = await openConversationApi(campaignId)
+        refreshConversations()
+        setSelectedConversationId(conversation.id)
+        goTo("Messages")
+      } catch (error) {
+        addActivity(error instanceof Error ? error.message : "Could not open conversation.", "amber")
+      }
+    })()
   }
 
   function submitDeliverable(id: number) {
@@ -564,11 +577,18 @@ export default function CreatorDashboardOverview() {
       caption: `Draft caption for ${collab.campaign}`,
       notes: "First video draft is ready for brand review. I can revise hook, CTA, or product close-up if needed.",
     })
+    setSubmissionError(null)
+  }
+
+  function closeSubmissionModal() {
+    setSubmissionCollab(null)
+    setSubmissionForm(emptySubmissionForm)
+    setSubmissionError(null)
   }
 
   function submitDeliverableForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!submissionCollab || !submissionForm.videoUrl.trim()) return
+    if (!submissionCollab || !submissionForm.videoUrl.trim() || submittingDeliverable) return
 
     const collabId = submissionCollab.id
     const brandName = submissionCollab.brand
@@ -584,18 +604,23 @@ export default function CreatorDashboardOverview() {
       no_copyright_music: submissionForm.checklist.noCopyrightMusic,
     }
 
+    setSubmissionError(null)
+    setSubmittingDeliverable(true)
+
     void (async () => {
       try {
         await submitDeliverableApi(collabId, payload)
         refreshCollaborations()
         addActivity(`Video submitted to ${brandName} for review.`, "blue")
+        setSubmissionCollab(null)
+        setSubmissionForm(emptySubmissionForm)
       } catch (error) {
-        addActivity(error instanceof Error ? error.message : "Could not submit deliverable.", "blue")
+        refreshCollaborations()
+        setSubmissionError(error instanceof Error ? error.message : "Could not submit deliverable.")
+      } finally {
+        setSubmittingDeliverable(false)
       }
     })()
-
-    setSubmissionCollab(null)
-    setSubmissionForm(emptySubmissionForm)
   }
 
   function goTo(section: Section) {
@@ -715,8 +740,10 @@ export default function CreatorDashboardOverview() {
         <DeliverableSubmissionModal
           collab={submissionCollab}
           form={submissionForm}
+          error={submissionError}
+          submitting={submittingDeliverable}
           onChange={setSubmissionForm}
-          onClose={() => setSubmissionCollab(null)}
+          onClose={closeSubmissionModal}
           onSubmit={submitDeliverableForm}
         />
       )}

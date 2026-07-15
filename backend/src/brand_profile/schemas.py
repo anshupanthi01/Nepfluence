@@ -29,3 +29,5 @@ class BrandProfilePublic(BrandProfileBase):
     id: int
     user_id: int
     is_verified: bool
+    logo_file: Optional[str] = None
+    logo_path: Optional[str] = None

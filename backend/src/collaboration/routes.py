@@ -189,6 +189,8 @@ async def submit_deliverable(
     collaboration = await _get_authorized_collaboration(db, collaboration_id, current_user)
     if collaboration.escrow_status != EscrowStatus.HELD:
         raise HTTPException(status_code=400, detail="Escrow must be funded before submitting a deliverable")
+    if collaboration.submission:
+        raise HTTPException(status_code=400, detail="A deliverable has already been submitted for this collaboration")
 
     updated = await crud.create_submission(db, collaboration, payload)
     return _collaboration_public(updated)

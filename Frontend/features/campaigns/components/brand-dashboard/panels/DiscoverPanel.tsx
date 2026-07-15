@@ -129,8 +129,13 @@ export function DiscoverPanel({
   const [emailBody, setEmailBody] = useState("")
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [movingDecision, setMovingDecision] = useState<{ handle: string; status: CreatorDiscoveryDecision["status"] } | null>(null)
-  const selectedHandles = discoveryDecisions.filter((decision) => decision.status === "SELECTED").map((decision) => decision.handle)
-  const rejectedHandles = discoveryDecisions.filter((decision) => decision.status === "REJECTED").map((decision) => decision.handle)
+  const knownHandles = new Set(creators.map((creator) => creator.handle))
+  const selectedHandles = discoveryDecisions
+    .filter((decision) => decision.status === "SELECTED" && knownHandles.has(decision.handle))
+    .map((decision) => decision.handle)
+  const rejectedHandles = discoveryDecisions
+    .filter((decision) => decision.status === "REJECTED" && knownHandles.has(decision.handle))
+    .map((decision) => decision.handle)
 
   const visibleCreators = creators.filter((creator) => {
     const connectedPlatforms = getCreatorPlatforms(creator)
@@ -140,7 +145,7 @@ export function DiscoverPanel({
     if (view === "selected") return selectedHandles.includes(creator.handle)
     if (view === "rejected") return rejectedHandles.includes(creator.handle)
     if (view === "lookalikes") return selectedCreator ? creator.niche === selectedCreator.niche && creator.handle !== selectedCreator.handle : false
-    return !selectedHandles.includes(creator.handle) && !rejectedHandles.includes(creator.handle)
+    return true
   })
 
   const activePlatformLabel = selectedPlatforms.length === 0

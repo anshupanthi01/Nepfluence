@@ -1,7 +1,7 @@
 import type { ApiError, StandardResponse } from "@/types/api.types"
 import { readAuthToken } from "@/lib/auth"
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
 type RequestOptions = RequestInit & {
   auth?: boolean

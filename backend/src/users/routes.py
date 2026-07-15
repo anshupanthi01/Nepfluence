@@ -200,6 +200,7 @@ async def change_password(
     if (not current_user.password_hash) or (not verify_password(password_data.current_password, current_user.password_hash)):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
+    current_user.must_change_password = False
     await crud.set_user_password(db, user=current_user, new_password=password_data.new_password)
     await crud.delete_all_reset_tokens_for_user(db, user_id=current_user.id)
 

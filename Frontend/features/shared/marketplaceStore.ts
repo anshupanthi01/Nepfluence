@@ -4,10 +4,25 @@ import { useEffect, useSyncExternalStore } from "react"
 import { apiClient } from "@/lib/api-client"
 import { readMockSession } from "@/lib/auth"
 
-export type CampaignStatus = "DRAFT" | "OPEN" | "PUBLISHED" | "PAUSED" | "CLOSED" | "COMPLETED"
+export type CampaignStatus =
+  | "DRAFT"
+  | "OPEN"
+  | "PUBLISHED"
+  | "PAUSED"
+  | "CLOSED"
+  | "COMPLETED"
+  | "IN_REVIEW"
+  | "DISPUTED"
 export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED"
 export type EscrowStatus = "NOT_REQUIRED" | "PENDING" | "HELD" | "RELEASED"
-export type CollaborationState = "ESCROW_PENDING" | "IN_PROGRESS" | "SUBMITTED" | "APPROVED"
+export type CollaborationState =
+  | "ESCROW_PENDING"
+  | "IN_PROGRESS"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "PAUSED"
+  | "DISPUTED"
+  | "CANCELLED"
 
 export type DeliverableSubmission = {
   videoUrl: string
@@ -99,7 +114,7 @@ export type MarketplaceLedgerEntry = {
   collaborationId: number
   fromUserId?: string
   toUserId?: string
-  type: "ESCROW_DEPOSIT" | "PAYOUT_RELEASE"
+  type: "ESCROW_DEPOSIT" | "PAYOUT_RELEASE" | "REFUND" | "PARTIAL_REFUND" | "ADJUSTMENT_DEBIT" | "ADJUSTMENT_CREDIT"
   amount: number
   createdAt: string
 }

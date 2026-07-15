@@ -16,6 +16,10 @@ class MessageCreate(BaseModel):
     body: str = Field(min_length=1, max_length=4000)
 
 
+class ConversationOpenRequest(BaseModel):
+    influencer_profile_id: int | None = None
+
+
 class MessagePublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

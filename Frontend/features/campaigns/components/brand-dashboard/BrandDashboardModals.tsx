@@ -45,26 +45,26 @@ export function CampaignFormModal({
         </div>
 
         <div className="grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Campaign title">
+          <Field label="Campaign title" required>
             <input required className="input" value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="e.g. Summer creator launch" />
           </Field>
-          <Field label="Niche">
+          <Field label="Niche" required>
             <select required className="input" value={form.niche} onChange={(event) => onChange({ ...form, niche: event.target.value })}>
               <option value="" disabled>Select a niche</option>
               {["Beauty", "Food", "Travel", "Lifestyle", "Fashion", "Tech"].map((item) => <option key={item}>{item}</option>)}
             </select>
           </Field>
-          <Field label="Budget">
+          <Field label="Budget (NPR)" required>
             <input required className="input" value={form.budget} onChange={(event) => onChange({ ...form, budget: event.target.value })} inputMode="numeric" placeholder="e.g. 50000" />
           </Field>
-          <Field label="Country">
+          <Field label="Country" required>
             <select required className="input" value={form.country} onChange={(event) => onChange({ ...form, country: event.target.value as "NP" | "IN" })}>
               <option value="" disabled>Select a country</option>
               <option value="NP">Nepal</option>
               <option value="IN">India</option>
             </select>
           </Field>
-          <Field label="Platform">
+          <Field label="Platform" required>
             <select required className="input" value={form.platform} onChange={(event) => onChange({ ...form, platform: event.target.value })}>
               <option value="" disabled>Select a platform</option>
               {["Instagram Reels", "TikTok", "YouTube Shorts", "Instagram Stories"].map((item) => <option key={item}>{item}</option>)}
@@ -73,7 +73,7 @@ export function CampaignFormModal({
           <Field label="Deadline">
             <input className="input" type="date" value={form.deadline} onChange={(event) => onChange({ ...form, deadline: event.target.value })} />
           </Field>
-          <Field label="Brief" wide>
+          <Field label="Brief" required wide>
             <textarea required className="input min-h-28 resize-none py-3" value={form.brief} onChange={(event) => onChange({ ...form, brief: event.target.value })} placeholder="Describe content format, must-have shots, revision rules, and approval criteria." />
           </Field>
           <div className="rounded-[20px] bg-white p-4 ring-1 ring-[#e8e2d9] md:col-span-2">
@@ -82,7 +82,9 @@ export function CampaignFormModal({
                 <Upload className="size-4" aria-hidden="true" />
               </span>
               <span className="text-sm font-semibold leading-6 text-[#505852]">
-                {selectedFileName ? `Selected: ${selectedFileName}` : "Upload a campaign cover image (optional). Uploaded after the draft is saved."}
+                {selectedFileName
+                  ? `Selected: ${selectedFileName} — uploads once you save the draft.`
+                  : "Upload a campaign cover image (optional). Uploaded after the draft is saved."}
               </span>
             </label>
             <input
@@ -173,7 +175,7 @@ export function CampaignManageModal({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <CampaignStat icon={Megaphone} label="Status" value={campaign.status} />
             <CampaignStat icon={BriefcaseBusiness} label="Budget" value={money(campaign.budget)} />
-            <CampaignStat icon={ClipboardList} label="Applications" value={`${campaignApplications.length || campaign.applications}`} />
+            <CampaignStat icon={ClipboardList} label="Applications" value={campaignApplications.length.toString()} />
             <CampaignStat icon={UsersRound} label="Accepted" value={`${campaign.accepted}`} />
           </div>
 
@@ -187,7 +189,7 @@ export function CampaignManageModal({
               </div>
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <Info label="Deadline" value={campaign.deadline} />
-                <Info label="Tracked reach" value={`${Math.round(campaign.reach / 1000)}K`} />
+                <Info label="Tracked reach" value={campaign.reach > 0 ? `${Math.round(campaign.reach / 1000)}K` : "0"} />
                 <Info label="Pending applications" value={pendingApplications.toString()} />
                 <Info label="Collaborations" value={campaignCollaborations.length.toString()} />
               </dl>
@@ -245,7 +247,12 @@ export function CampaignManageModal({
                     <p className="text-sm font-black text-[#1f252b]">{application.creator}</p>
                     <p className="mt-1 text-xs font-semibold text-[#69716b]">{application.handle} / {application.niche} / {application.followers} followers</p>
                   </div>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(application.status)}`}>{application.status}</span>
+                  <div className="flex items-center gap-2">
+                    {application.niche !== campaign.niche && (
+                      <span className="rounded-full bg-[#fff5df] px-2.5 py-1 text-xs font-black text-[#9b6500]">Niche mismatch</span>
+                    )}
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${statusClass(application.status)}`}>{application.status}</span>
+                  </div>
                 </div>
               ))}
               {campaignApplications.length === 0 && (
@@ -280,10 +287,11 @@ function Info({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Field({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
+function Field({ label, children, required = false, wide = false }: { label: string; children: ReactNode; required?: boolean; wide?: boolean }) {
   return (
     <label className={`text-xs font-black text-[#505852] ${wide ? "md:col-span-2" : ""}`}>
       {label}
+      {required && <span className="ml-0.5 text-[#9f1d1d]">*</span>}
       <div className="mt-2 [&_.input]:w-full [&_.input]:rounded-[18px] [&_.input]:border [&_.input]:border-[#ded8cf] [&_.input]:bg-white [&_.input]:px-4 [&_.input]:text-sm [&_.input]:font-semibold [&_.input]:text-[#1f252b] [&_.input]:outline-none [&_.input]:transition [&_.input]:focus:border-[#1f252b] [&_.input]:focus:ring-4 [&_.input]:focus:ring-[#1f252b]/8 [&_select.input]:h-11 [&_input.input]:h-11">
         {children}
       </div>

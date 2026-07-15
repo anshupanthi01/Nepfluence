@@ -1,6 +1,9 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 
@@ -11,6 +14,13 @@ from src.users import router as users_router
 from src.brand_profile.routes import router as brand_router
 from src.influencer_profile.routes import router as influencer_router
 from src.campaign.routes import router as campaign_router
+# Import admin.routes here: after User/BrandProfile/InfluencerProfile/Campaign are
+# registered (their classes must already exist for the admin_profile/brand_profile/
+# influencer_profile forward-ref relationships to resolve), but before
+# campaign_proposal.routes - campaign_proposal/crud.py and collaboration/crud.py both
+# build selectinload(...) eager-load option tuples at module import time, which forces
+# SQLAlchemy to eagerly resolve every pending relationship on every class mapped so far.
+from src.admin.routes import router as admin_router
 from src.campaign_proposal.routes import router as campaign_proposal_router
 from src.google_auth import router as google_auth_router
 from src.integrations.youtube.routes import router as youtube_router
@@ -18,6 +28,8 @@ from src.marketplace.routes import router as marketplace_router
 from src.contact.routes import router as contact_router
 from src.conversations.routes import router as conversations_router
 from src.collaboration.routes import router as collaboration_router
+from src.platform_settings import crud as platform_settings_crud
+from src.database import AsyncSessionLocal
 
 
 async def ensure_sqlite_schema(conn) -> None:
@@ -31,6 +43,15 @@ async def ensure_sqlite_schema(conn) -> None:
         await conn.execute(
             text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub ON users (google_sub)")
         )
+    if "must_change_password" not in user_columns:
+        await conn.execute(
+            text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0")
+        )
+
+    result = await conn.execute(text("PRAGMA table_info(brand_profiles)"))
+    brand_profile_columns = {row[1] for row in result.fetchall()}
+    if "logo_file" not in brand_profile_columns:
+        await conn.execute(text("ALTER TABLE brand_profiles ADD COLUMN logo_file VARCHAR(200)"))
 
     result = await conn.execute(text("PRAGMA table_info(campaigns)"))
     campaign_columns = {row[1] for row in result.fetchall()}
@@ -102,6 +123,10 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         await ensure_sqlite_schema(conn)
     print("Database tables created")
+
+    async with AsyncSessionLocal() as session:
+        await platform_settings_crud.seed_defaults(session)
+
     yield
     print("Shutting down...")
 
@@ -132,6 +157,9 @@ app.add_middleware(
     secret_key=settings.SECRET_KEY.get_secret_value(),
 )
 
+os.makedirs("media", exist_ok=True)
+app.mount("/media", StaticFiles(directory="media"), name="media")
+
 # Routers
 app.include_router(google_auth_router, tags=["auth"])
 app.include_router(users_router, prefix="/api/users", tags=["users"])
@@ -144,6 +172,7 @@ app.include_router(marketplace_router)
 app.include_router(contact_router)
 app.include_router(conversations_router)
 app.include_router(collaboration_router)
+app.include_router(admin_router, tags=["admin"])
 
 
 @app.get("/")

@@ -61,6 +61,18 @@ class BrandProfile(Base):
         nullable=False,
     )
 
+    logo_file: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        default=None,
+    )
+
+    @property
+    def logo_path(self) -> str | None:
+        if self.logo_file:
+            return f"/media/brand_logo/{self.logo_file}"
+        return None
+
     user = relationship(
         "User",
         back_populates="brand_profile",

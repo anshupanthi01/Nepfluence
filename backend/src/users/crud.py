@@ -61,6 +61,32 @@ async def list_users(db: AsyncSession, *, skip: int = 0, limit: int = 100) -> li
     return list(result.scalars().all())
 
 
+async def admin_list_users(
+    db: AsyncSession,
+    *,
+    role: model.UserRole | None = None,
+    is_active: bool | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[model.User], int]:
+    from src.shared.pagination import paginate_rows
+
+    stmt = select(model.User).order_by(model.User.id.desc())
+    if role is not None:
+        stmt = stmt.where(model.User.role == role)
+    if is_active is not None:
+        stmt = stmt.where(model.User.is_active == is_active)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            (model.User.username.ilike(like)) | (model.User.email.ilike(like))
+        )
+
+    rows, total = await paginate_rows(db, stmt, page, page_size)
+    return list(rows), total
+
+
 # ---------- Create ----------
 async def create_user(db: AsyncSession, data: schema.UserCreate) -> model.User:
     new_user = model.User(

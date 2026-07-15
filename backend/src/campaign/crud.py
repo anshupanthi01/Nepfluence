@@ -51,6 +51,33 @@ async def get_published_campaigns(
     return list(result.scalars().all())
 
 
+async def admin_list_campaigns(
+    db: AsyncSession,
+    *,
+    status=None,
+    brand_id: int | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    from src.shared.pagination import paginate_rows
+
+    stmt = (
+        select(Campaign)
+        .options(selectinload(Campaign.brand_profile))
+        .order_by(Campaign.date_posted.desc())
+    )
+    if status is not None:
+        stmt = stmt.where(Campaign.status == status)
+    if brand_id is not None:
+        stmt = stmt.where(Campaign.brand_profile_id == brand_id)
+    if q:
+        stmt = stmt.where(Campaign.title.ilike(f"%{q}%"))
+
+    rows, total = await paginate_rows(db, stmt, page, page_size)
+    return list(rows), total
+
+
 async def create_campaign(
     db: AsyncSession,
     brand_profile_id: int,
