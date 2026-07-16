@@ -34,6 +34,12 @@ class ProfileStats:
     is_verified_badge: bool
     provider: str
     fetched_at: datetime
+    # Real profile photo URL from the platform's CDN. IMPORTANT: both Instagram and TikTok
+    # return SHORT-LIVED SIGNED urls (IG: `oe=<hex expiry>`, TikTok: `x-expires=<unix>`) that
+    # die in roughly a day, so a stored value goes stale on about the same cadence as the 24h
+    # discovery freshness TTL. Consumers must degrade gracefully (the UI falls back to initials
+    # on image load error) rather than showing a broken image.
+    avatar_url: str | None = None
     # Provider-specific extras not yet promoted to a normalized field (e.g. average_views,
     # engagement_rate, total_views, total_videos, fake_view_flag). Consumers should read
     # well-known keys defensively; not every provider populates every key.

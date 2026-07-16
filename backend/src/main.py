@@ -121,6 +121,14 @@ async def ensure_sqlite_schema(conn) -> None:
     if "deleted_for_recipient_at" not in message_columns:
         await conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_for_recipient_at DATETIME"))
 
+    # discovery_creators is created by Base.metadata.create_all, but create_all does NOT add
+    # columns to an already-existing table - so a new column needs this ALTER path or every dev
+    # DB created before it silently lacks the column and every read errors.
+    result = await conn.execute(text("PRAGMA table_info(discovery_creators)"))
+    discovery_columns = {row[1] for row in result.fetchall()}
+    if discovery_columns and "avatar_url" not in discovery_columns:
+        await conn.execute(text("ALTER TABLE discovery_creators ADD COLUMN avatar_url TEXT"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

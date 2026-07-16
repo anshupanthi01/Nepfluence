@@ -145,6 +145,8 @@ class TikHubProvider(SocialDataProvider):
             is_verified_badge=bool(user.get("verified", False)),
             provider=self.name,
             fetched_at=datetime.now(timezone.utc),
+            # Profile endpoint returns flat avatar strings (avatarMedium/avatarThumb).
+            avatar_url=user.get("avatarMedium") or user.get("avatarThumb"),
             raw={
                 "sec_uid": user.get("secUid"),
                 "following_count": stats.get("followingCount"),
@@ -176,6 +178,9 @@ class TikHubProvider(SocialDataProvider):
                     is_verified_badge=is_verified,
                     provider=self.name,
                     fetched_at=datetime.now(timezone.utc),
+                    # Search endpoint nests the avatar differently from the profile endpoint:
+                    # avatar_thumb.url_list[] (a list of mirrors) vs a flat avatarMedium string.
+                    avatar_url=_first_url(user.get("avatar_thumb")),
                     raw={
                         "sec_uid": user.get("sec_uid"),
                         "total_favorited": user.get("total_favorited"),
@@ -208,6 +213,7 @@ class TikHubProvider(SocialDataProvider):
             is_verified_badge=bool(user.get("is_verified", False)),
             provider=self.name,
             fetched_at=datetime.now(timezone.utc),
+            avatar_url=user.get("profile_pic_url_hd") or user.get("profile_pic_url"),
             raw={
                 "following_count": (user.get("edge_follow") or {}).get("count"),
                 "is_private": user.get("is_private"),
@@ -240,6 +246,7 @@ class TikHubProvider(SocialDataProvider):
                     is_verified_badge=bool(item.get("is_verified", False)),
                     provider=self.name,
                     fetched_at=datetime.now(timezone.utc),
+                    avatar_url=item.get("profile_pic_url"),
                     raw=item if isinstance(item, dict) else {},
                 )
             )
@@ -281,6 +288,21 @@ def _unwrap_list(payload: dict) -> list[dict]:
             if isinstance(value, list):
                 return value
     return []
+
+
+def _first_url(image_obj) -> str | None:
+    """TikTok image fields are `{"url_list": [<mirror>, ...]}` - take the first mirror.
+
+    The mirrors are equivalent signed URLs on different CDN hosts; they all carry the same
+    `x-expires` deadline, so picking any one has the same lifetime.
+    """
+    if not isinstance(image_obj, dict):
+        return None
+    url_list = image_obj.get("url_list")
+    if isinstance(url_list, list) and url_list:
+        first = url_list[0]
+        return first if isinstance(first, str) else None
+    return None
 
 
 def _first_present(obj: dict, *keys: str):

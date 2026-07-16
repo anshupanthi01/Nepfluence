@@ -47,11 +47,23 @@ export const navItems: { label: Section; icon: LucideIcon }[] = [
 export type Creator = {
   name: string
   handle: string
-  country: "NP" | "IN"
+  // null = country genuinely unknown (discovery/scraped creators - TikHub exposes no reliable
+  // country signal). Deliberately NOT defaulted to "NP": that badge is shown to brands deciding
+  // who to pay, so an unproven guess would be presented as fact. Unknown-country creators are
+  // excluded by the NP/IN filter, since we can't demonstrate they match it.
+  country: "NP" | "IN" | null
   niche: string
   followers: string
   rating: string
-  image: string
+  // null = no real profile photo available. Never substitute a stock photo here: doing so put a
+  // random stranger's face on a named real creator's card (a woman's stock photo on MrBeast).
+  // Callers must fall back to initials.
+  image: string | null
+  // Real engagement rate (%) when the provider actually returned one; null = genuinely unknown
+  // (currently always null for TikHub - its posts endpoints are paywalled/broken). Never fake it.
+  engagementRate?: number | null
+  // Real average views across recent posts; null = genuinely unknown (same TikHub gap).
+  recentPostAvgViews?: number | null
   platforms?: string[]
   // Track 1 (discovery ingestion): false for creators found via TikHub/YouTube search who
   // haven't signed up to Nepfluence - undefined/true for real onboarded profiles.
@@ -60,6 +72,24 @@ export type Creator = {
   // the UI can label them "as of <date>, unverified estimate" per the plan's legal-labeling
   // rule (never let a brand mistake a scraped estimate for verified data).
   statsAsOf?: string
+}
+
+/** Stable, collision-free identity for a Creator in a rendered list.
+ *
+ * Onboarded creators are unique by handle. Discovery (scraped) creators are NOT: the same handle
+ * routinely exists on several platforms - searching "mrbeast" returns @mrbeast on both Instagram
+ * and TikTok - which collided into a duplicate React key and let React duplicate/omit cards. The
+ * backend models this correctly (`discovery_creators` has UNIQUE(platform, handle)), so mirror it
+ * here rather than assuming handle alone is unique.
+ *
+ * These are deliberately NOT merged into one card: a shared handle across platforms does not prove
+ * it's the same person (@john on IG need not be @john on TikTok), and fusing two identities would
+ * show brands an unproven claim as fact.
+ */
+export function creatorKey(creator: Creator) {
+  return creator.isOnboarded === false
+    ? `${creator.platforms?.[0] ?? "unknown"}:${creator.handle}`
+    : creator.handle
 }
 
 export const creators: Creator[] = []
