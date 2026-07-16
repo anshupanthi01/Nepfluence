@@ -187,6 +187,28 @@ export function DiscoverPanel({
     setEmailBody(`Hi ${creator.name},\n\nWe are interested in working with you on an upcoming creator campaign. Your ${creator.niche} content looks like a strong fit for our brand.\n\nWould you be open to discussing the brief?\n\nThanks,\nNepfluence brand team`)
   }
 
+  // Discovery-sourced creators (isOnboarded: false) have no Nepfluence account yet, so the
+  // real in-app contact/messaging flow (openContact -> ContactModal) doesn't apply to them -
+  // there's no user_id to message. Instead, this opens their public platform profile so the
+  // brand can reach out directly and invite them to join. No automated-invite backend exists
+  // yet, so this deliberately doesn't claim to send one.
+  function externalProfileUrl(creator: Creator): string | null {
+    const platform = creator.platforms?.[0]
+    const bareHandle = creator.handle.replace(/^@/, "")
+    if (platform === "instagram") return `https://instagram.com/${bareHandle}`
+    if (platform === "tiktok") return `https://www.tiktok.com/@${bareHandle}`
+    if (platform === "youtube") {
+      return `https://www.youtube.com/${bareHandle.startsWith("UC") ? `channel/${bareHandle}` : `@${bareHandle}`}`
+    }
+    return null
+  }
+
+  function inviteDiscoveredCreator(creator: Creator) {
+    const url = externalProfileUrl(creator)
+    if (url) window.open(url, "_blank", "noopener,noreferrer")
+    setNotice(`Opened ${creator.name}'s profile — reach out to invite them to Nepfluence.`)
+  }
+
   async function sendEmail() {
     if (!contactCreator || !emailSubject.trim() || !emailBody.trim()) return
 
@@ -372,11 +394,23 @@ export function DiscoverPanel({
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate text-[15px] font-black text-[#1f252b]">{creator.name}</h3>
                       <span className="rounded-full bg-[#f0ece5] px-2 py-0.5 text-[10px] font-black text-[#69716b]">{creator.country}</span>
+                      {creator.isOnboarded === false && (
+                        <span className="rounded-full bg-[#fff5df] px-2 py-0.5 text-[10px] font-black text-[#9b6500]">
+                          Not on Nepfluence
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 text-xs font-black text-[#8a8175]">{creator.handle}</p>
-                    <p className="mt-3 line-clamp-2 max-w-xl text-[13px] font-medium leading-5 text-[#69716b]">
-                      {creator.niche} creator available for product demos, brand storytelling, and campaign content.
-                    </p>
+                    {creator.isOnboarded === false ? (
+                      <p className="mt-3 max-w-xl text-[13px] font-medium leading-5 text-[#69716b]">
+                        Unverified estimate from public data
+                        {creator.statsAsOf ? ` — as of ${new Date(creator.statsAsOf).toLocaleDateString()}` : ""}. This creator hasn&apos;t joined Nepfluence yet.
+                      </p>
+                    ) : (
+                      <p className="mt-3 line-clamp-2 max-w-xl text-[13px] font-medium leading-5 text-[#69716b]">
+                        {creator.niche} creator available for product demos, brand storytelling, and campaign content.
+                      </p>
+                    )}
                   </button>
                   <div className="mt-3 flex items-center gap-1.5">
                     <button className="grid size-7 place-items-center rounded-full border border-[#ded8cf] bg-white text-[#1f252b]" type="button" aria-label={`Select ${creator.name}`} onClick={() => selectCreator(creator)}>
@@ -418,14 +452,25 @@ export function DiscoverPanel({
                 </div>
 
                 <div className="flex items-center gap-2 xl:justify-end">
-                  <button
-                    className="inline-flex h-9 items-center gap-2 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white shadow-[0_8px_18px_rgba(31,37,43,0.16)]"
-                    type="button"
-                    onClick={() => openContact(creator)}
-                  >
-                    <Send className="size-3.5" aria-hidden="true" />
-                    Contact
-                  </button>
+                  {creator.isOnboarded === false ? (
+                    <button
+                      className="inline-flex h-9 items-center gap-2 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white shadow-[0_8px_18px_rgba(31,37,43,0.16)]"
+                      type="button"
+                      onClick={() => inviteDiscoveredCreator(creator)}
+                    >
+                      <Send className="size-3.5" aria-hidden="true" />
+                      Invite to Nepfluence
+                    </button>
+                  ) : (
+                    <button
+                      className="inline-flex h-9 items-center gap-2 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white shadow-[0_8px_18px_rgba(31,37,43,0.16)]"
+                      type="button"
+                      onClick={() => openContact(creator)}
+                    >
+                      <Send className="size-3.5" aria-hidden="true" />
+                      Contact
+                    </button>
+                  )}
                 </div>
               </article>
             )

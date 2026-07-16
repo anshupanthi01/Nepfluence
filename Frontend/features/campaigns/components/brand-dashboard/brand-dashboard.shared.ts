@@ -53,6 +53,13 @@ export type Creator = {
   rating: string
   image: string
   platforms?: string[]
+  // Track 1 (discovery ingestion): false for creators found via TikHub/YouTube search who
+  // haven't signed up to Nepfluence - undefined/true for real onboarded profiles.
+  isOnboarded?: boolean
+  // ISO timestamp from discovery_creators.last_scraped_at - only set for scraped cards, so
+  // the UI can label them "as of <date>, unverified estimate" per the plan's legal-labeling
+  // rule (never let a brand mistake a scraped estimate for verified data).
+  statsAsOf?: string
 }
 
 export const creators: Creator[] = []

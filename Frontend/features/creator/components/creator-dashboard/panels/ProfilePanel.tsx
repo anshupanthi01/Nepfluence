@@ -5,11 +5,24 @@ import { BadgeCheck, Camera, CheckCircle2, Edit3, Eye, FileText, Globe, Heart, K
 import { Button } from "@/components/ui/button"
 import { changePassword } from "@/features/account/api/accountApi"
 import { createMyCreatorProfile, updateMyCreatorProfile } from "@/features/creator-profile/api/creatorProfileApi"
-import { readMockSession } from "@/lib/auth"
+import {
+  listConnectedAccounts,
+  startSocialConnect,
+  type ConnectedAccount,
+  type ConnectPlatform,
+} from "@/features/creator-profile/api/socialConnectApi"
 import { type CreatorWorkspaceProfile } from "../creator-dashboard.shared"
 
 const nicheOptions = ["beauty", "food", "travel", "lifestyle", "education", "fitness", "tech", "gaming", "other"]
-const socialPlatformOptions = ["Instagram", "Tiktok", "Youtube", "X", "Twitch", "Pinterest"]
+
+// Only YouTube has a registered OAuth app today (see backend/src/social_connect/
+// oauth_clients.py) - Instagram/TikTok are scaffolded but dormant until developer apps are
+// registered, so they render disabled rather than letting a click 503.
+const connectablePlatforms: { platform: ConnectPlatform; label: string; available: boolean }[] = [
+  { platform: "youtube", label: "YouTube", available: true },
+  { platform: "instagram", label: "Instagram", available: false },
+  { platform: "tiktok", label: "TikTok", available: false },
+]
 
 function initials(name: string) {
   return name
@@ -74,6 +87,8 @@ export function ProfilePanel({
   const [previewOpen, setPreviewOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [socialConnectorOpen, setSocialConnectorOpen] = useState(false)
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
+  const [connectingPlatform, setConnectingPlatform] = useState<ConnectPlatform | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [profileImagePreview, setProfileImagePreview] = useState("")
@@ -98,6 +113,12 @@ export function ProfilePanel({
       bio: creatorProfile.bio,
     })
   }, [creatorProfile])
+
+  useEffect(() => {
+    listConnectedAccounts()
+      .then(setConnectedAccounts)
+      .catch(() => setConnectedAccounts([]))
+  }, [])
 
   const profileTags = useMemo(() => {
     return [
@@ -183,32 +204,16 @@ export function ProfilePanel({
     }, 0)
   }
 
-  function updateSocialPlatforms(platforms: string[]) {
-    const session = readMockSession()
-    if (session?.userId) {
-      window.localStorage.setItem(`nepfluence-creator-socials:${session.userId}`, JSON.stringify(platforms))
+  async function connectPlatform(platform: ConnectPlatform) {
+    setConnectingPlatform(platform)
+    setStatusMessage("")
+    try {
+      const { authorize_url } = await startSocialConnect(platform)
+      window.location.href = authorize_url
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Unable to start connection.")
+      setConnectingPlatform(null)
     }
-
-    onProfileChange({
-      ...creatorProfile,
-      connectedPlatforms: platforms,
-      analytics: creatorProfile.analytics.map((item) =>
-        item.label === "Accounts"
-          ? { ...item, value: platforms.length.toString(), detail: platforms.length ? "Connected" : "Connect socials" }
-          : platforms.length && item.detail === "Connect socials"
-            ? { ...item, detail: "Connected socials" }
-            : item,
-      ),
-    })
-    setStatusMessage(platforms.length ? "Social accounts connected locally." : "Social accounts cleared.")
-  }
-
-  function toggleSocialPlatform(platform: string) {
-    const currentPlatforms = creatorProfile.connectedPlatforms
-    const nextPlatforms = currentPlatforms.includes(platform)
-      ? currentPlatforms.filter((item) => item !== platform)
-      : [...currentPlatforms, platform]
-    updateSocialPlatforms(nextPlatforms)
   }
 
   function refreshProfileData() {
@@ -474,20 +479,36 @@ export function ProfilePanel({
                 </button>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {socialPlatformOptions.map((platform) => {
-                  const connected = creatorProfile.connectedPlatforms.includes(platform)
+                {connectablePlatforms.map(({ platform, label, available }) => {
+                  const connection = connectedAccounts.find((account) => account.platform === platform)
+                  const isConnecting = connectingPlatform === platform
 
                   return (
                     <button
                       key={platform}
                       className={`flex h-12 items-center justify-between rounded-[14px] border px-4 text-sm font-black transition ${
-                        connected ? "border-[#1f252b] bg-[#1f252b] text-white" : "border-[#ded8cf] bg-[#fbfaf7] text-[#505852] hover:border-[#1f252b]"
+                        connection
+                          ? "border-[#1f252b] bg-[#1f252b] text-white"
+                          : available
+                            ? "border-[#ded8cf] bg-[#fbfaf7] text-[#505852] hover:border-[#1f252b]"
+                            : "cursor-not-allowed border-[#ded8cf] bg-[#f0ece5] text-[#a19a8e]"
                       }`}
                       type="button"
-                      onClick={() => toggleSocialPlatform(platform)}
+                      disabled={!available || isConnecting}
+                      onClick={() => connectPlatform(platform)}
                     >
-                      {platform}
-                      <span className={`rounded-full px-2 py-1 text-[10px] ${connected ? "bg-white/15 text-white" : "bg-white text-[#69716b]"}`}>{connected ? "Connected" : "Connect"}</span>
+                      {label}
+                      <span className={`rounded-full px-2 py-1 text-[10px] ${connection ? "bg-white/15 text-white" : "bg-white text-[#69716b]"}`}>
+                        {connection
+                          ? connection.platform_handle
+                            ? `@${connection.platform_handle}`
+                            : "Connected"
+                          : isConnecting
+                            ? "Connecting..."
+                            : available
+                              ? "Connect"
+                              : "Coming soon"}
+                      </span>
                     </button>
                   )
                 })}
@@ -495,9 +516,6 @@ export function ProfilePanel({
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Button className="h-9 rounded-full bg-[#1f252b] px-4 text-xs font-black text-white hover:bg-[#363d43]" type="button" onClick={() => setSocialConnectorOpen(false)}>
                   Done
-                </Button>
-                <Button className="h-9 rounded-full border-[#ded8cf] px-4 text-xs font-black text-[#505852]" variant="outline" type="button" onClick={() => updateSocialPlatforms([])}>
-                  Clear socials
                 </Button>
               </div>
             </section>

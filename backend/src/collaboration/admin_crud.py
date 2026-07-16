@@ -59,6 +59,23 @@ async def get_ledger_for_collaboration(db: AsyncSession, collaboration_id: int) 
     return list(result.scalars().all())
 
 
+async def current_adjustment_balance(db: AsyncSession, collaboration: Collaboration) -> int:
+    """Payout balance after all prior manual adjustments, not the static original payout_amount.
+
+    Adjustments never mutate collaboration.payout_amount (see `adjust()` below) - they're
+    append-only ledger entries. Anything capping a new adjustment against payout_amount alone
+    ignores every adjustment already applied, so repeated debits could drive the real balance
+    negative while each individual request still looked "in range."
+    """
+    ledger_entries = await get_ledger_for_collaboration(db, collaboration.id)
+    net_prior_adjustments = sum(
+        entry.amount if entry.type == LedgerType.ADJUSTMENT_CREDIT else -entry.amount
+        for entry in ledger_entries
+        if entry.type in (LedgerType.ADJUSTMENT_CREDIT, LedgerType.ADJUSTMENT_DEBIT)
+    )
+    return collaboration.payout_amount + net_prior_adjustments
+
+
 def _brand_user_id(collaboration: Collaboration) -> int | None:
     campaign = collaboration.proposal.campaign if collaboration.proposal else None
     brand_profile = campaign.brand_profile if campaign else None

@@ -82,9 +82,7 @@ export function CampaignFormModal({
                 <Upload className="size-4" aria-hidden="true" />
               </span>
               <span className="text-sm font-semibold leading-6 text-[#505852]">
-                {selectedFileName
-                  ? `Selected: ${selectedFileName} — uploads once you save the draft.`
-                  : "Upload a campaign cover image (optional). Uploaded after the draft is saved."}
+                Upload a campaign cover image (optional).
               </span>
             </label>
             <input
@@ -98,6 +96,15 @@ export function CampaignFormModal({
                 onFileChange?.(file)
               }}
             />
+            {selectedFileName ? (
+              <p className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-[#fff5df] px-2.5 py-1 text-xs font-black text-[#9b6500]">
+                {selectedFileName} — nothing uploads yet, this attaches once you click &ldquo;Save draft&rdquo; below.
+              </p>
+            ) : (
+              <p className="mt-2.5 text-xs font-semibold text-[#8a8175]">
+                No file chosen yet. Selecting one here does not upload it immediately — it&apos;s held until the draft is saved.
+              </p>
+            )}
           </div>
         </div>
 

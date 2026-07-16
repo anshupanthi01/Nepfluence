@@ -24,6 +24,7 @@ import {
   COLLABORATION_STATE_TONE,
   ESCROW_STATUS_TONE,
   LEDGER_TYPE_TONE,
+  computeAdjustmentBalance,
   formatCurrency,
   formatFeeLine,
 } from "@/features/admin/components/escrow-console/escrow-console.shared"
@@ -456,7 +457,11 @@ export function EscrowConsolePanel() {
         open={actionMode === "adjust"}
         onOpenChange={(open) => !open && setActionMode(null)}
         title="Manual adjustment"
-        description="Writes a new adjustment ledger entry against this collaboration's creator payout — this takes effect immediately and cannot be undone, only offset by a further adjustment. Capped at the collaboration's agreed payout amount."
+        description={
+          adjustType === "debit"
+            ? "Writes a new adjustment ledger entry against this collaboration's creator payout — this takes effect immediately and cannot be undone, only offset by a further adjustment. Debits are capped at the current balance (original payout, net of every prior adjustment)."
+            : "Writes a new adjustment ledger entry against this collaboration's creator payout — this takes effect immediately and cannot be undone, only offset by a further adjustment. Credits are capped at the collaboration's original payout amount."
+        }
         footer={
           <AdjustFooter
             isSubmitting={isSubmitting}
@@ -476,11 +481,25 @@ export function EscrowConsolePanel() {
               <SelectItem value="debit">Debit (decrease payout)</SelectItem>
             </SelectContent>
           </Select>
+          {detail && (
+            <p className="text-xs text-muted-foreground">
+              Current balance: {formatCurrency(computeAdjustmentBalance(detail.ledger_entries, detail.payout_amount))}
+              {" "}(original {formatCurrency(detail.payout_amount)})
+            </p>
+          )}
           <Input
             type="number"
             min={1}
-            max={detail?.payout_amount}
-            placeholder={`Amount (up to ${detail ? formatCurrency(detail.payout_amount) : ""})`}
+            max={detail ? (adjustType === "debit" ? computeAdjustmentBalance(detail.ledger_entries, detail.payout_amount) : detail.payout_amount) : undefined}
+            placeholder={`Amount (up to ${
+              detail
+                ? formatCurrency(
+                    adjustType === "debit"
+                      ? computeAdjustmentBalance(detail.ledger_entries, detail.payout_amount)
+                      : detail.payout_amount,
+                  )
+                : ""
+            })`}
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
           />

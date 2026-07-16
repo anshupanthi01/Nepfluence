@@ -20,7 +20,7 @@ from src.admin.schemas import (
 )
 from src.collaboration import admin_crud
 from src.collaboration.crud import get_by_id
-from src.collaboration.enums import CollaborationState, EscrowStatus
+from src.collaboration.enums import CollaborationState, EscrowStatus, LedgerType
 from src.collaboration.models import Collaboration
 from src.collaboration.payout_math import compute_payout_breakdown
 from src.database import get_db
@@ -256,14 +256,22 @@ async def adjust_collaboration(
     admin: Annotated[AdminProfile, require_admin_module(permissions.MODULE_ESCROW)],
 ):
     collaboration = await _get_collaboration_or_404(db, collaboration_id)
-    if payload.amount > collaboration.payout_amount:
+    current_balance = await admin_crud.current_adjustment_balance(db, collaboration)
+
+    if payload.type == "debit" and payload.amount > current_balance:
         raise HTTPException(
             status_code=400,
-            detail="Adjustment amount cannot exceed the collaboration's payout amount",
+            detail=f"Debit amount cannot exceed the current balance ({current_balance}) after prior adjustments",
+        )
+    if payload.type == "credit" and payload.amount > collaboration.payout_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="Credit amount cannot exceed the collaboration's original payout amount",
         )
 
     updated = await admin_crud.adjust(db, collaboration, kind=payload.type, amount=payload.amount)
 
+    balance_after = current_balance + (payload.amount if payload.type == "credit" else -payload.amount)
     await record_audit(
         db,
         actor=admin,
@@ -271,7 +279,8 @@ async def adjust_collaboration(
         module=permissions.MODULE_ESCROW,
         target_type="collaboration",
         target_id=collaboration_id,
-        after={"type": payload.type, "amount": payload.amount},
+        before={"balance_before": current_balance},
+        after={"type": payload.type, "amount": payload.amount, "balance_after": balance_after},
         reason=payload.reason,
     )
     return _list_item(updated)

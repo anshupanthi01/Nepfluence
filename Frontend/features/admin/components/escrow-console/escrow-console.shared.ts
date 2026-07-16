@@ -1,5 +1,5 @@
 import type { BadgeTone } from "@/components/ui/status-badge"
-import type { AdminCollaborationState, AdminEscrowStatus, AdminLedgerType } from "@/features/admin/types/admin.types"
+import type { AdminCollaborationState, AdminEscrowStatus, AdminLedgerEntry, AdminLedgerType } from "@/features/admin/types/admin.types"
 
 export const COLLABORATION_STATE_TONE: Record<AdminCollaborationState, BadgeTone> = {
   escrow_pending: "neutral",
@@ -32,4 +32,13 @@ export function formatCurrency(amount: number): string {
 
 export function formatFeeLine(amount: number, percent: number): string {
   return `${formatCurrency(amount)} (${percent}%)`
+}
+
+export function computeAdjustmentBalance(ledgerEntries: AdminLedgerEntry[], payoutAmount: number): number {
+  const netPriorAdjustments = ledgerEntries.reduce((sum, entry) => {
+    if (entry.type === "adjustment_credit") return sum + entry.amount
+    if (entry.type === "adjustment_debit") return sum - entry.amount
+    return sum
+  }, 0)
+  return payoutAmount + netPriorAdjustments
 }

@@ -1,13 +1,50 @@
 from __future__ import annotations
 
+import httpx
 from googleapiclient.discovery import build
 from src.config import settings
 
 MAX_LIMIT = 50
 
+YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
+
 
 def get_youtube_client():
     return build("youtube", "v3", developerKey=settings.YOUTUBE_API_KEY)
+
+
+async def get_own_channel(access_token: str) -> dict | None:
+    """Resolve the channel that OWNS the given OAuth access token via `channels.list(mine=true)`.
+
+    Used by the social-connect YouTube callback: the OAuth token exchange gives us tokens but not
+    the connecting user's channel id, and the public API-key `get_channel_stats` needs a channel id.
+    An API key cannot answer `mine=true`; it requires the user's own bearer token, so this is a
+    direct authorized httpx call rather than the API-key `get_youtube_client()`.
+
+    Returns `{channel_id, handle, channel_name}` or None if the account has no channel / the call
+    fails. `handle` comes from `snippet.customUrl` (the "@handle"), which may be absent.
+    """
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(
+            f"{YOUTUBE_API_BASE}/channels",
+            params={"part": "snippet", "mine": "true"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    if resp.status_code != 200:
+        return None
+
+    items = (resp.json() or {}).get("items", [])
+    if not items:
+        return None
+
+    channel = items[0]
+    snippet = channel.get("snippet") or {}
+    return {
+        "channel_id": channel.get("id"),
+        "handle": snippet.get("customUrl"),
+        "channel_name": snippet.get("title"),
+    }
 
 
 async def get_channel_stats(channel_id: str) -> dict:

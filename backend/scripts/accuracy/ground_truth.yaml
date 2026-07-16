@@ -1,0 +1,43 @@
+# Hand-recorded ground truth for the Phase 0 TikHub accuracy gate (plan §2).
+#
+# For each creator, open their live profile in the Instagram/TikTok/YouTube app or web UI
+# and copy down the numbers BY HAND, all on the same day (freshness matters for the
+# comparison - see recorded_on). Aim for 10-15 creators total, spanning:
+#   - platforms: instagram, tiktok, (optionally youtube, to sanity-check the new
+#     average_views/engagement_rate calc in youtube_official.py)
+#   - sizes: nano (<10k), micro (10k-100k), mid (100k-1M)
+#
+# recent_posts: last 6-12 posts, most recent first. Fewer than 6 is fine if that's all a
+# small creator has posted recently - the harness's post_completeness check accounts for it.
+#
+# platform values must be exactly: instagram | tiktok | youtube
+# handle: the exact username/handle to look up (for youtube, use the channel ID, since
+# that's what youtube_official.py's get_profile expects).
+
+creators:
+  - handle: "REPLACE_ME_instagram_handle_1"
+    platform: instagram
+    recorded_on: "2026-07-16"
+    followers: 0
+    recent_posts:
+      - views: 0
+        likes: 0
+        comments: 0
+      - views: 0
+        likes: 0
+        comments: 0
+
+  - handle: "REPLACE_ME_tiktok_handle_1"
+    platform: tiktok
+    recorded_on: "2026-07-16"
+    followers: 0
+    recent_posts:
+      - views: 0
+        likes: 0
+        comments: 0
+      - views: 0
+        likes: 0
+        comments: 0
+
+  # Add 8-13 more creators here following the same shape, then delete the two
+  # REPLACE_ME placeholders above.

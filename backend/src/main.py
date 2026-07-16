@@ -28,6 +28,11 @@ from src.marketplace.routes import router as marketplace_router
 from src.contact.routes import router as contact_router
 from src.conversations.routes import router as conversations_router
 from src.collaboration.routes import router as collaboration_router
+from src.social_ingest.routes import router as social_ingest_router
+from src.social_ingest.scheduler import start_scheduler, stop_scheduler
+# social_connect: verified OAuth "connect your account" plane. No relationship()/selectinload
+# on VerifiedCreatorAccount, so no import-ordering constraint (unlike campaign_proposal/collaboration).
+from src.social_connect.routes import router as social_connect_router
 from src.platform_settings import crud as platform_settings_crud
 from src.database import AsyncSessionLocal
 
@@ -127,7 +132,10 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as session:
         await platform_settings_crud.seed_defaults(session)
 
+    start_scheduler()
+
     yield
+    stop_scheduler()
     print("Shutting down...")
 
 
@@ -172,6 +180,8 @@ app.include_router(marketplace_router)
 app.include_router(contact_router)
 app.include_router(conversations_router)
 app.include_router(collaboration_router)
+app.include_router(social_ingest_router)
+app.include_router(social_connect_router)
 app.include_router(admin_router, tags=["admin"])
 
 

@@ -170,7 +170,7 @@ export function CampaignsPanel({
 
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <MiniCampaignStat label="Budget" value={money(campaign.budget)} />
-                <MiniCampaignStat label="Reach" value={`${Math.round(campaign.reach / 1000)}K`} />
+                <MiniCampaignStat label="Reach" value={campaign.reach > 0 ? `${Math.round(campaign.reach / 1000)}K` : "0"} />
                 <MiniCampaignStat label="Country" value={campaign.country} />
               </div>
 
@@ -309,7 +309,7 @@ function CampaignDetailModal({
         <div className="overflow-y-auto p-5">
           <div className="grid gap-3 md:grid-cols-4">
             <MiniCampaignStat label="Budget" value={money(campaign.budget)} />
-            <MiniCampaignStat label="Reach" value={`${Math.round(campaign.reach / 1000)}K`} />
+            <MiniCampaignStat label="Reach" value={campaign.reach > 0 ? `${Math.round(campaign.reach / 1000)}K` : "0"} />
             <MiniCampaignStat label="Country" value={campaign.country} />
             <MiniCampaignStat label="Deadline" value={campaign.deadline} />
           </div>

@@ -4,6 +4,7 @@ import { ClipboardList, Megaphone, ShieldCheck, UsersRound } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import { apiClient } from "@/lib/api-client"
+import { searchDiscoveryCreators, type DiscoveryCreator, type DiscoveryPlatform } from "@/features/campaigns/api/discoveryApi"
 import {
   type Message,
   hideConversation as hideConversationApi,
@@ -117,6 +118,28 @@ function directoryProfileToCreator(profile: CreatorDirectoryProfile, index: numb
     rating: profile.rating || "New",
     image: profile.image && profile.image !== "kei xaina" ? profile.image : creatorImages[index % creatorImages.length],
     platforms: profile.platforms ?? [],
+    isOnboarded: true,
+  }
+}
+
+// Track 1: creators found via TikHub/YouTube search who haven't signed up to Nepfluence.
+// country/niche aren't reliably known from a bare search result (no geo/niche guesser was
+// built - see plan §7 scope note), so these default to the platform's primary market rather
+// than being left blank; the isOnboarded/statsAsOf fields are what actually distinguish
+// these cards in the UI, not the country/niche guess.
+function discoveryProfileToCreator(profile: DiscoveryCreator, index: number): Creator {
+  const handle = profile.handle.startsWith("@") ? profile.handle : `@${profile.handle}`
+  return {
+    name: profile.display_name || profile.handle,
+    handle,
+    country: "NP",
+    niche: "Uncategorized",
+    followers: profile.followers != null ? profile.followers.toLocaleString("en-US") : "0",
+    rating: "Discovered",
+    image: creatorImages[index % creatorImages.length],
+    platforms: [profile.platform],
+    isOnboarded: false,
+    statsAsOf: profile.last_scraped_at,
   }
 }
 
@@ -222,6 +245,7 @@ export default function BrandDashboardOverview() {
   const [creatorFilter, setCreatorFilter] = useState<"ALL" | "NP" | "IN">("ALL")
   const [creatorSearch, setCreatorSearch] = useState("")
   const [directoryCreators, setDirectoryCreators] = useState<Creator[]>([])
+  const [discoveredCreators, setDiscoveredCreators] = useState<Creator[]>([])
   const [brandMessage, setBrandMessage] = useState("")
   const [conversations, setConversations] = useState<BrandConversation[]>([])
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null)
@@ -446,6 +470,48 @@ export default function BrandDashboardOverview() {
     }
   }, [])
 
+  // Track 1: debounced search-triggered discovery ingestion. A brand's search text drives a
+  // live TikHub/YouTube lookup for creators who haven't signed up - deliberately NOT fired on
+  // every keystroke or on a bare page load (plan §7 cost discipline: only a real search
+  // triggers a possible billed provider call, and the backend's own cache-through logic
+  // absorbs repeats within the TTL).
+  useEffect(() => {
+    const query = creatorSearch.trim()
+    if (query.length < 2) {
+      setDiscoveredCreators([])
+      return
+    }
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const platforms: DiscoveryPlatform[] = ["instagram", "tiktok"]
+      const results = await Promise.all(
+        platforms.map((platform) =>
+          searchDiscoveryCreators({ platform, query, limit: 8 }).catch(() => [] as DiscoveryCreator[]),
+        ),
+      )
+      if (!cancelled) {
+        setDiscoveredCreators(results.flat().map(discoveryProfileToCreator))
+      }
+    }, 500)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [creatorSearch])
+
+  // Merge onboarded (real) creators with scraped/not-yet-onboarded ones found via search,
+  // following the multi-source-adapter pattern this component already uses elsewhere
+  // (campaigns/proposals/collaborations). Onboarded creators win on handle collisions.
+  const combinedCreators = useMemo(() => {
+    const knownHandles = new Set(directoryCreators.map((creator) => creator.handle.toLowerCase()))
+    const uniqueDiscovered = discoveredCreators.filter(
+      (creator) => !knownHandles.has(creator.handle.toLowerCase()),
+    )
+    return [...directoryCreators, ...uniqueDiscovered]
+  }, [directoryCreators, discoveredCreators])
+
 
   const idCounter = useRef(0)
 
@@ -462,13 +528,13 @@ export default function BrandDashboardOverview() {
 
     return [
       { label: "Live campaigns", value: liveCampaigns.toString(), detail: "Published and visible", icon: Megaphone },
-      { label: "Applications", value: pendingApplicationsCount.toString(), detail: "Pending review", icon: ClipboardList },
+      { label: "Pending applications", value: pendingApplicationsCount.toString(), detail: "Awaiting your review", icon: ClipboardList },
       { label: "Escrow held", value: escrowHeld.toString(), detail: "Chat unlocked", icon: ShieldCheck },
       { label: "Tracked reach", value: reach > 0 ? `${Math.round(reach / 1000)}K` : "0", detail: "MVP campaign estimate", icon: UsersRound },
     ]
   }, [campaigns, applications, collaborations])
 
-  const filteredCreators = (creatorFilter === "ALL" ? directoryCreators : directoryCreators.filter((creator) => creator.country === creatorFilter)).filter((creator) => {
+  const filteredCreators = (creatorFilter === "ALL" ? combinedCreators : combinedCreators.filter((creator) => creator.country === creatorFilter)).filter((creator) => {
     const query = creatorSearch.trim().toLowerCase()
     if (!query) return true
 

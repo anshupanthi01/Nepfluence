@@ -1,33 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { BadgeHelp, Camera, Check, Music2, Pin, Radio, Video, X } from "lucide-react"
+import { Camera, Music2, Video } from "lucide-react"
 import ProtectedRoute from "@/features/auth/components/ProtectedRoute"
 import { completeCreatorOnboarding, hasCompletedCreatorOnboarding, readMockSession } from "@/lib/auth"
 
-type Platform = {
-  label: string
-  action: "Connect" | "Add"
-  recommended?: boolean
-  icon: typeof Camera
-}
-
-const platforms: Platform[] = [
-  { label: "Instagram", action: "Connect", recommended: true, icon: Camera },
-  { label: "Tiktok", action: "Connect", icon: Music2 },
-  { label: "Youtube", action: "Connect", icon: Video },
-  { label: "X", action: "Add", icon: X },
-  { label: "Twitch", action: "Add", icon: Radio },
-  { label: "Pinterest", action: "Add", icon: Pin },
-]
-
+// Real social-account connecting (OAuth) lives on the profile page - see
+// features/creator-profile/api/socialConnectApi.ts and ProfilePanel.tsx. Wiring a 3-way OAuth
+// redirect mid-onboarding-wizard (with back/forward state to preserve) is materially more
+// complex than pointing here to a dedicated settings flow, for no real benefit - this page is
+// now a lightweight welcome step, not a (previously fake, localStorage-only) connector.
 function CreatorOnboardingContent() {
   const router = useRouter()
-  const [connected, setConnected] = useState<string[]>([])
-  const canValidate = connected.length > 0
-  const recommended = useMemo(() => platforms.filter((platform) => platform.action === "Connect"), [])
-  const additional = useMemo(() => platforms.filter((platform) => platform.action === "Add"), [])
 
   useEffect(() => {
     const session = readMockSession()
@@ -36,15 +21,8 @@ function CreatorOnboardingContent() {
     }
   }, [router])
 
-  function togglePlatform(label: string) {
-    setConnected((current) => (current.includes(label) ? current.filter((item) => item !== label) : [...current, label]))
-  }
-
   function finishOnboarding() {
     const session = readMockSession()
-    if (session?.userId) {
-      window.localStorage.setItem(`nepfluence-creator-socials:${session.userId}`, JSON.stringify(connected))
-    }
     completeCreatorOnboarding(session?.userId)
     router.replace("/creator/dashboard")
   }
@@ -55,44 +33,35 @@ function CreatorOnboardingContent() {
         <div className="w-full max-w-[640px]">
           <h1 className="text-3xl font-black tracking-normal sm:text-4xl">Can we get to know each other?</h1>
           <p className="mt-5 max-w-[520px] text-sm font-medium leading-6 text-[#536071]">
-            Connect your social media accounts with Nepfluence Creator Space to verify your account and unlock more collaboration opportunities.
+            Welcome to Nepfluence Creator Space. Once you&apos;re in, connect your social
+            accounts from your profile to verify your reach and unlock more collaboration
+            opportunities.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-black">Connect social accounts</h2>
-              <span className="rounded-full bg-[#eef1ff] px-3 py-1 text-xs font-black text-[#263cff]">Recommended</span>
+          <div className="mt-8 flex items-center gap-3 rounded-[12px] border border-[#dde2ea] bg-white px-5 py-4">
+            <div className="flex -space-x-1">
+              <span className="grid size-9 place-items-center rounded-full border-2 border-white bg-[#eef1ff] text-[#0b18ff]">
+                <Camera className="size-4" aria-hidden="true" />
+              </span>
+              <span className="grid size-9 place-items-center rounded-full border-2 border-white bg-[#eef1ff] text-[#0b18ff]">
+                <Music2 className="size-4" aria-hidden="true" />
+              </span>
+              <span className="grid size-9 place-items-center rounded-full border-2 border-white bg-[#eef1ff] text-[#0b18ff]">
+                <Video className="size-4" aria-hidden="true" />
+              </span>
             </div>
-            <button className="inline-flex items-center gap-1 text-sm font-medium text-[#315cff]" type="button">
-              <BadgeHelp className="size-4" aria-hidden="true" />
-              How to connect?
-            </button>
+            <p className="text-sm font-medium text-[#536071]">
+              Instagram, TikTok and YouTube can be connected from your profile page after signup.
+            </p>
           </div>
 
-          <div className="mt-3 grid gap-2">
-            {recommended.map((platform) => (
-              <PlatformRow key={platform.label} platform={platform} connected={connected.includes(platform.label)} onToggle={() => togglePlatform(platform.label)} />
-            ))}
-          </div>
-
-          <h2 className="mt-8 text-base font-black">Add social handle</h2>
-          <div className="mt-3 grid gap-2">
-            {additional.map((platform) => (
-              <PlatformRow key={platform.label} platform={platform} connected={connected.includes(platform.label)} onToggle={() => togglePlatform(platform.label)} />
-            ))}
-          </div>
-
-          <div className="mt-8 flex items-center justify-end gap-4">
-            <button className="h-10 rounded-[8px] px-4 text-sm font-bold text-[#315cff]" type="button" onClick={finishOnboarding}>
-              Skip for now
-            </button>
+          <div className="mt-8 flex items-center justify-end">
             <button
-              className="inline-flex h-11 min-w-28 items-center justify-center rounded-[8px] bg-[#0b18ff] px-5 text-sm font-black text-white transition disabled:bg-[#dfe3eb] disabled:text-[#9aa3b2]"
-              disabled={!canValidate}
+              className="inline-flex h-11 min-w-28 items-center justify-center rounded-[8px] bg-[#0b18ff] px-5 text-sm font-black text-white transition"
               type="button"
               onClick={finishOnboarding}
             >
-              Validate
+              Continue
             </button>
           </div>
         </div>
@@ -108,31 +77,6 @@ function CreatorOnboardingContent() {
         />
       </section>
     </main>
-  )
-}
-
-function PlatformRow({ platform, connected, onToggle }: { platform: Platform; connected: boolean; onToggle: () => void }) {
-  const Icon = platform.icon
-
-  return (
-    <button
-      className="flex h-[62px] w-full items-center justify-between rounded-[8px] border border-[#dde2ea] bg-white px-5 text-left transition hover:border-[#aeb8ff]"
-      type="button"
-      onClick={onToggle}
-    >
-      <span className="inline-flex items-center gap-4">
-        <Icon className="size-5 text-[#0b0d14]" aria-hidden="true" />
-        <span className="text-sm font-black">{platform.label}</span>
-      </span>
-      <span
-        className={`inline-flex h-9 min-w-20 items-center justify-center gap-2 rounded-[8px] border px-4 text-sm font-medium ${
-          connected ? "border-[#0b18ff] bg-[#eef1ff] text-[#0b18ff]" : "border-[#0b18ff] bg-white text-[#0b18ff]"
-        }`}
-      >
-        {connected && <Check className="size-4" aria-hidden="true" />}
-        {connected ? "Added" : platform.action}
-      </span>
-    </button>
   )
 }
 
