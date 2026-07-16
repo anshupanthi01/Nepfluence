@@ -100,15 +100,11 @@ type CreatorDirectoryProfile = {
   platforms?: string[]
 }
 
-const creatorImages = [
-  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=320&q=80",
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80",
-  "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=320&q=80",
-  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=320&q=80",
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=320&q=80",
-]
-
-function directoryProfileToCreator(profile: CreatorDirectoryProfile, index: number): Creator {
+// A `creatorImages` array of stock Unsplash portraits used to live here, assigned by
+// `index % 5` to any creator without a photo. That put unrelated strangers' faces on named real
+// people's cards. Removed: a missing photo now renders initials (see CreatorAvatar in
+// DiscoverPanel). Never substitute a human face you can't attribute to the actual account.
+function directoryProfileToCreator(profile: CreatorDirectoryProfile): Creator {
   return {
     name: profile.full_name,
     handle: profile.handle,
@@ -116,27 +112,34 @@ function directoryProfileToCreator(profile: CreatorDirectoryProfile, index: numb
     niche: profile.niche,
     followers: profile.followers || "0",
     rating: profile.rating || "New",
-    image: profile.image && profile.image !== "kei xaina" ? profile.image : creatorImages[index % creatorImages.length],
+    // "kei xaina" is a placeholder string sitting in the demo DB's image_path column.
+    image: profile.image && profile.image !== "kei xaina" ? profile.image : null,
     platforms: profile.platforms ?? [],
     isOnboarded: true,
   }
 }
 
 // Track 1: creators found via TikHub/YouTube search who haven't signed up to Nepfluence.
-// country/niche aren't reliably known from a bare search result (no geo/niche guesser was
-// built - see plan §7 scope note), so these default to the platform's primary market rather
-// than being left blank; the isOnboarded/statsAsOf fields are what actually distinguish
-// these cards in the UI, not the country/niche guess.
-function discoveryProfileToCreator(profile: DiscoveryCreator, index: number): Creator {
+// country is null, NOT "NP": TikHub returns no reliable country signal, and this badge is shown
+// to brands choosing who to pay - a live search for "Nihvo" returned a Serbian restaurant and a
+// Brazilian vet clinic, which a hardcoded "NP" would have presented as Nepali. Unknown-country
+// creators are consequently excluded by the NP/IN filter (we can't show they match it).
+function discoveryProfileToCreator(profile: DiscoveryCreator): Creator {
   const handle = profile.handle.startsWith("@") ? profile.handle : `@${profile.handle}`
   return {
     name: profile.display_name || profile.handle,
     handle,
-    country: "NP",
+    country: null,
     niche: "Uncategorized",
-    followers: profile.followers != null ? profile.followers.toLocaleString("en-US") : "0",
+    // "0" only if the provider genuinely reported 0; null follower counts render as "—".
+    followers: profile.followers != null ? profile.followers.toLocaleString("en-US") : "",
     rating: "Discovered",
-    image: creatorImages[index % creatorImages.length],
+    // The REAL avatar from the platform, or null -> initials. Never a stock photo: previously
+    // this used creatorImages[index % 5], which put unrelated strangers' faces on named real
+    // creators (a woman's stock photo on MrBeast's card).
+    image: profile.avatar_url,
+    engagementRate: profile.avg_engagement_rate,
+    recentPostAvgViews: profile.recent_post_avg_views,
     platforms: [profile.platform],
     isOnboarded: false,
     statsAsOf: profile.last_scraped_at,
@@ -538,7 +541,12 @@ export default function BrandDashboardOverview() {
     const query = creatorSearch.trim().toLowerCase()
     if (!query) return true
 
-    return [creator.name, creator.handle, creator.niche, creator.country].some((value) => value.toLowerCase().includes(query))
+    // country is nullable (unknown for discovery creators) - filter out nullish before
+    // .toLowerCase(), which would otherwise throw and take down the whole panel exactly when
+    // a search is active (i.e. precisely when discovery creators are present).
+    return [creator.name, creator.handle, creator.niche, creator.country]
+      .filter((value): value is string => Boolean(value))
+      .some((value) => value.toLowerCase().includes(query))
   })
   const pendingApplications = applications.filter((application) => application.status === "PENDING")
   const managedCampaign = campaigns.find((campaign) => campaign.id === managedCampaignId) ?? null

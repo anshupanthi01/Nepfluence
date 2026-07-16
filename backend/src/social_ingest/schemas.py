@@ -24,6 +24,7 @@ class DiscoveryCreatorPublic(BaseModel):
     platform: SocialPlatform
     handle: str
     display_name: str | None = None
+    avatar_url: str | None = None
     followers: int | None = None
     avg_engagement_rate: float | None = None
     recent_post_avg_views: int | None = None
@@ -40,6 +41,7 @@ class DiscoveryCreatorPublic(BaseModel):
             platform=row.platform,
             handle=row.handle,
             display_name=row.display_name,
+            avatar_url=row.avatar_url,
             followers=row.followers,
             avg_engagement_rate=(
                 float(row.avg_engagement_rate) if row.avg_engagement_rate is not None else None

@@ -59,7 +59,12 @@ async def upsert_profile(
 
     row.platform_user_id = profile.platform_user_id
     row.display_name = profile.display_name
-    row.followers = profile.followers
+    # Don't null out a previously-stored value if this particular response lacked one (e.g. a
+    # search result that carries less data than a full profile lookup).
+    if profile.followers is not None:
+        row.followers = profile.followers
+    if profile.avatar_url:
+        row.avatar_url = profile.avatar_url
     row.is_verified_badge = profile.is_verified_badge
     row.provider = profile.provider
     row.last_scraped_at = profile.fetched_at

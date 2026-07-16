@@ -6,12 +6,16 @@ import { useSearchParams } from "next/navigation"
 import { CheckCircle2, XCircle } from "lucide-react"
 import ProtectedRoute from "@/features/auth/components/ProtectedRoute"
 
+// Keys must match the `reason=` codes emitted by backend/src/social_connect/routes.py's
+// _callback_redirect calls. Anything unmapped falls back to the generic message below.
 const reasonMessages: Record<string, string> = {
   denied: "You declined the connection request.",
   session_mismatch: "This connection link is no longer valid. Please try connecting again.",
   bad_state: "This connection link is no longer valid. Please try connecting again.",
   token_exchange_failed: "We couldn't complete the connection. Please try again.",
-  channel_unavailable: "That channel is already connected to a different Nepfluence account.",
+  channel_claimed: "That channel is already connected to a different Nepfluence account.",
+  no_channel: "That Google account doesn't have a YouTube channel. Create one, then try again.",
+  link_failed: "We couldn't finish setting up the connection. Please try again.",
   no_profile: "Complete your creator profile before connecting a social account.",
   not_configured: "This platform isn't available to connect yet.",
   missing_params: "We couldn't complete the connection. Please try again.",

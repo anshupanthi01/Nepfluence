@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import statistics
@@ -37,6 +38,10 @@ _BREAKER_COOLDOWN_SECONDS = 120
 # free daily quota, not billed through this budget.
 _BUDGETED_PROVIDERS = {"tikhub"}
 
+# Max concurrent follower-backfill profile lookups (see _backfill_missing_followers). Keeps a
+# wide search fast without hammering TikHub hard enough to trip its rate limiter.
+_BACKFILL_CONCURRENCY = 5
+
 
 class DiscoveryUnavailable(Exception):
     """Raised when a live provider call is needed but blocked (budget/circuit breaker) and
@@ -70,16 +75,44 @@ async def _record_success(provider_name: str, platform: SocialPlatform) -> None:
     await redis_client.delete_key(_breaker_open_key(provider_name, platform))
 
 
-async def _budget_allows(provider_name: str) -> bool:
+def _budget_key(provider_name: str) -> str:
+    return f"budget:{provider_name}:{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+
+
+async def _budget_exhausted(provider_name: str) -> bool:
+    """Read-only ceiling check - deliberately does NOT increment.
+
+    Counting is done by `_record_billed_request` after each ACTUAL provider call, because the
+    gate and the spend are not 1:1: `get_or_refresh_profile` passes this gate once and then makes
+    two billed requests (get_profile + get_recent_posts). An incrementing gate therefore
+    undercounted real spend ~2x, letting DISCOVERY_DAILY_REQUEST_BUDGET=500 permit ~1000 billed
+    requests - and it also inflated the counter on requests it had just blocked (which spend
+    nothing), so an over-budget counter climbed forever.
+    """
     if provider_name not in _BUDGETED_PROVIDERS:
-        return True
-    today_key = f"budget:{provider_name}:{datetime.now(timezone.utc).strftime('%Y%m%d')}"
-    # TTL a bit over 24h so a slow-to-expire key never straddles two UTC days undercounted.
-    count = await redis_client.incr_with_ttl(today_key, 26 * 3600)
-    if count is None:
-        # Redis unreachable - fail open (allow), same tradeoff as incr_with_ttl documents.
-        return True
-    return count <= settings.DISCOVERY_DAILY_REQUEST_BUDGET
+        return False
+    raw = await redis_client.get_value(_budget_key(provider_name))
+    if raw is None:
+        # No counter yet today, or Redis unreachable - fail open (allow), the same tradeoff
+        # redis_client.incr_with_ttl documents: a Redis outage degrades cost *enforcement*,
+        # never availability.
+        return False
+    try:
+        return int(raw) >= settings.DISCOVERY_DAILY_REQUEST_BUDGET
+    except (TypeError, ValueError):
+        return False
+
+
+async def _record_billed_request(provider_name: str) -> None:
+    """Count exactly one actually-billed provider request.
+
+    Called only AFTER a successful call: TikHub bills successful requests only ("Only pay for
+    successful requests" - tikhub.io/pricing), so counting attempts would overstate spend.
+    TTL is a bit over 24h so a slow-to-expire key never straddles two UTC days undercounted.
+    """
+    if provider_name not in _BUDGETED_PROVIDERS:
+        return
+    await redis_client.incr_with_ttl(_budget_key(provider_name), 26 * 3600)
 
 
 def _average_views(posts: list[PostStats]) -> int | None:
@@ -114,7 +147,7 @@ async def get_or_refresh_profile(
     provider = registry.get_provider(platform, UseCase.DISCOVERY)
     stale_row = await crud.get_by_platform_handle(db, platform, handle)
 
-    if await _breaker_is_open(provider.name, platform) or not await _budget_allows(provider.name):
+    if await _breaker_is_open(provider.name, platform) or await _budget_exhausted(provider.name):
         if stale_row is not None:
             return stale_row
         raise DiscoveryUnavailable(
@@ -128,6 +161,7 @@ async def get_or_refresh_profile(
         if stale_row is not None:
             return stale_row
         raise
+    await _record_billed_request(provider.name)
 
     # Posts are a secondary enrichment (engagement rate / avg views) - a failure here (e.g.
     # a paywalled or misconfigured posts endpoint) must not discard perfectly good profile
@@ -135,6 +169,7 @@ async def get_or_refresh_profile(
     # fail for reasons unrelated to the provider's overall health (billing, param format).
     try:
         posts = await provider.get_recent_posts(platform, handle, limit=12)
+        await _record_billed_request(provider.name)
     except ProviderError as exc:
         logger.warning("get_recent_posts failed for %s/%s: %s", platform.value, handle, exc)
         posts = []
@@ -180,7 +215,7 @@ async def search(
 
     provider = registry.get_provider(platform, UseCase.DISCOVERY)
 
-    if await _breaker_is_open(provider.name, platform) or not await _budget_allows(provider.name):
+    if await _breaker_is_open(provider.name, platform) or await _budget_exhausted(provider.name):
         return await crud.search_cached(db, platform, query, limit)
 
     try:
@@ -189,11 +224,60 @@ async def search(
         await _record_failure(provider.name, platform)
         return await crud.search_cached(db, platform, query, limit)
 
+    await _record_billed_request(provider.name)
     await _record_success(provider.name, platform)
+
+    profiles = await _backfill_missing_followers(provider, platform, profiles)
 
     rows = [await crud.upsert_profile(db, profile) for profile in profiles]
     await redis_client.set_json(cache_key, [row.handle for row in rows], SEARCH_CACHE_TTL_SECONDS)
     return rows
+
+
+async def _backfill_missing_followers(provider, platform: SocialPlatform, profiles: list):
+    """Fill in follower counts that a platform's SEARCH endpoint doesn't return.
+
+    Instagram's search endpoint returns no follower count at all (verified live) - only its
+    profile endpoint does. Without this, brands see an Instagram card with no follower number.
+
+    EXPENSIVE: +1 billed request per result missing a count (a limit=8 IG search becomes 9 billed
+    calls). TikTok search already returns counts, so this no-ops there entirely.
+
+    Runs CONCURRENTLY: measured sequentially, a limit=8 IG search took **63 seconds** end-to-end,
+    which is unusable for a type-to-search box. Bounded by a semaphore so a wide search doesn't
+    hammer TikHub into rate-limiting us.
+
+    Budget is checked ONCE for the batch rather than per call - a deliberate trade: exact
+    per-call gating would force this back to sequential. Worst case a single batch overshoots the
+    daily ceiling by (batch size - 1), i.e. <=24 at the max allowed limit, which is an acceptable
+    bound for a cap whose purpose is preventing runaway spend, not cent-accurate accounting.
+    """
+    missing = [p for p in profiles if p.followers is None]
+    if not missing:
+        return profiles
+    if await _budget_exhausted(provider.name) or await _breaker_is_open(provider.name, platform):
+        return profiles  # degrade: keep results, leave followers unknown
+
+    semaphore = asyncio.Semaphore(_BACKFILL_CONCURRENCY)
+
+    async def fetch(profile):
+        async with semaphore:
+            try:
+                return profile, await provider.get_profile(platform, profile.handle)
+            except ProviderError as exc:
+                logger.warning(
+                    "follower backfill failed for %s/%s: %s", platform.value, profile.handle, exc
+                )
+                return profile, None
+
+    for profile, full in await asyncio.gather(*(fetch(p) for p in missing)):
+        if full is None:
+            continue  # non-fatal: keep the search result, just without a follower count
+        # Keep the search result's identity, take the profile lookup's richer stats.
+        profile.followers = full.followers
+        profile.avatar_url = profile.avatar_url or full.avatar_url
+        await _record_billed_request(provider.name)
+    return profiles
 
 
 async def refresh_claimed_creator(db: AsyncSession, discovery_creator: DiscoveryCreator) -> None:
@@ -206,7 +290,7 @@ async def refresh_claimed_creator(db: AsyncSession, discovery_creator: Discovery
 
     if await _breaker_is_open(provider.name, discovery_creator.platform):
         return
-    if not await _budget_allows(provider.name):
+    if await _budget_exhausted(provider.name):
         return
 
     try:
@@ -214,11 +298,13 @@ async def refresh_claimed_creator(db: AsyncSession, discovery_creator: Discovery
     except ProviderError:
         await _record_failure(provider.name, discovery_creator.platform)
         return
+    await _record_billed_request(provider.name)
 
     try:
         posts = await provider.get_recent_posts(
             discovery_creator.platform, discovery_creator.handle, limit=12
         )
+        await _record_billed_request(provider.name)
     except ProviderError as exc:
         logger.warning(
             "get_recent_posts failed for %s/%s: %s",

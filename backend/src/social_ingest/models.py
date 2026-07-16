@@ -43,6 +43,10 @@ class DiscoveryCreator(Base):
     display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     country_guess: Mapped[str | None] = mapped_column(String(2), nullable=True)
     niche_guess: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Real platform CDN avatar. These URLs are SIGNED AND SHORT-LIVED (~24h) on both IG and
+    # TikTok, so a stored value expires on roughly the same cadence as the discovery freshness
+    # TTL that refreshes it. Text (not String(n)) because the signed query strings are long.
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     followers: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     avg_engagement_rate: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)

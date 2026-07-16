@@ -45,6 +45,7 @@ Security-sensitive. Design points that make this different from the login OAuth 
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import datetime, timezone
 from typing import Annotated
@@ -68,7 +69,22 @@ from src.social_connect.schemas import ConnectedAccountPublic, ConnectStartRespo
 from src.social_connect.token_crypto import encrypt
 from src.users.model import UserRole
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/social-connect", tags=["social_connect"])
+
+
+class _ChannelLinkError(Exception):
+    """A YouTube channel-link failure carrying a stable, non-sensitive reason code.
+
+    Distinguishes the two very different user-facing causes that were previously both
+    signalled by returning None (and both rendered as "already connected to a different
+    account", which is actively wrong when the real cause was "no channel on this account").
+    """
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
 
 # Reuses the app's existing SECRET_KEY (same secret SessionMiddleware is keyed with). The salt
 # namespaces these tokens so a `social-connect` state can never be confused with any other
@@ -163,13 +179,13 @@ async def _link_youtube_channel(
     db: AsyncSession,
     influencer_profile_id: int,
     access_token: str,
-) -> tuple[str, str | None] | None:
+) -> tuple[str, str | None]:
     """YouTube side-effect: resolve the connecting user's own channel, guard the already-claimed
     edge case, then create/update the legacy `SocialAccount` row with verified stats.
 
-    Returns `(channel_id, handle)` on success, or None if the channel could not be resolved or is
-    already claimed by a DIFFERENT influencer profile (caller redirects to an error page). Nothing
-    is committed here on the conflict path.
+    Returns `(channel_id, handle)` on success. Raises `_ChannelLinkError` with a reason code if
+    the channel can't be resolved or is already claimed by a DIFFERENT influencer profile;
+    nothing is committed on those paths.
 
     `youtube_channel_id` is NOT NULL UNIQUE across the whole table, so a channel already linked to
     another profile is a hard integrity conflict (potential fraud) - we refuse rather than silently
@@ -177,7 +193,7 @@ async def _link_youtube_channel(
     """
     channel = await get_own_channel(access_token)
     if not channel or not channel.get("channel_id"):
-        return None
+        raise _ChannelLinkError("no_channel")
 
     channel_id = channel["channel_id"]
     handle = channel.get("handle")
@@ -189,10 +205,26 @@ async def _link_youtube_channel(
         )
     ).scalars().first()
     if existing_by_channel is not None and existing_by_channel.influencer_id != influencer_profile_id:
-        return None  # claimed by a different profile - refuse
+        raise _ChannelLinkError("channel_claimed")
 
-    # Public API-key stats for display (subscribers/views/videos).
-    stats = await get_channel_stats(channel_id)
+    # Public API-key stats for display (subscribers/views/videos) - purely enrichment for the
+    # legacy SocialAccount row. A failure here must NOT abort the connect: the OAuth exchange
+    # already succeeded and the channel is resolved, so the authorization itself is valid and
+    # worth persisting. This mirrors the same call made for get_recent_posts in
+    # social_ingest/service.py - secondary enrichment never discards good primary data.
+    # Realistic failure causes: YOUTUBE_API_KEY unset/revoked (build() raises
+    # DefaultCredentialsError, not an HTTP error) or the Data API's 10k units/day quota
+    # exhausted. Stats then stay null and are refilled by the next successful read.
+    stats: dict = {}
+    try:
+        stats = await get_channel_stats(channel_id)
+    except Exception as exc:
+        logger.warning(
+            "get_channel_stats failed for channel_id=%s (connect still proceeding): %s: %s",
+            channel_id,
+            type(exc).__name__,
+            exc,
+        )
 
     # Reuse the row already tied to this channel, else this profile's existing YouTube row (handles
     # a creator reconnecting a different channel), else create fresh.
@@ -300,11 +332,26 @@ async def connect_callback(
     platform_user_id: str = ""
     platform_handle: str | None = None
     if platform_enum == SocialPlatform.youtube:
-        link_result = await _link_youtube_channel(db, profile.id, access_token)
-        if link_result is None:
+        try:
+            platform_user_id, platform_handle = await _link_youtube_channel(
+                db, profile.id, access_token
+            )
+        except _ChannelLinkError as exc:
             await db.rollback()
-            return _callback_redirect(platform, ok=False, reason="channel_unavailable")
-        platform_user_id, platform_handle = link_result
+            return _callback_redirect(platform, ok=False, reason=exc.reason)
+        except Exception:
+            # Backstop: this endpoint's contract is that it ALWAYS redirects (see module
+            # docstring point 3). That guarantee must be structural rather than depend on every
+            # callee raising only expected types - e.g. get_channel_stats reaches googleapiclient,
+            # which raises DefaultCredentialsError/HttpError, neither of which is an
+            # HTTPException, so an uncaught one would render a raw JSON 500 in the user's browser.
+            # Traceback only (no locals), so the access_token never reaches the log.
+            logger.exception(
+                "unexpected failure linking youtube channel for influencer_profile_id=%s",
+                profile.id,
+            )
+            await db.rollback()
+            return _callback_redirect(platform, ok=False, reason="link_failed")
 
     # Encrypt tokens at rest. refresh_token is only present with access_type=offline+prompt=consent.
     access_token_encrypted = encrypt(access_token)

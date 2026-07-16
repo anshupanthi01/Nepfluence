@@ -48,44 +48,69 @@ import {
 import {
   type Activity,
   type Creator,
-  creatorAnalytics,
   creatorImage,
+  creatorKey,
   creatorWorkSamples,
   campaignImage,
   money,
   statusClass,
 } from "../brand-dashboard.shared"
 
-const metricSets = [
-  [
-    { platform: "IG", value: "5.2K", rate: "33.33%" },
-    { platform: "YT", value: "144K", rate: "6.46%" },
-    { platform: "TT", value: "Active", rate: "" },
-  ],
-  [
-    { platform: "IG", value: "458K", rate: "0.1%" },
-    { platform: "TT", value: "157K", rate: "0.06%" },
-    { platform: "YT", value: "Active", rate: "" },
-  ],
-  [
-    { platform: "IG", value: "122K", rate: "3.41%" },
-    { platform: "YT", value: "146K", rate: "9.11%" },
-    { platform: "TT", value: "Active", rate: "" },
-  ],
-  [
-    { platform: "IG", value: "200K", rate: "15.66%" },
-    { platform: "YT", value: "213K", rate: "6.72%" },
-    { platform: "TT", value: "8.2K", rate: "132.94%" },
-  ],
-]
+// `metricSets` and `awardSets` used to live here: hardcoded fake follower/engagement values and
+// category tags, cycled onto cards by `index % length`. They were never wired to any API - the
+// impossible "132.94%" engagement rate was a literal constant, and that's why the same numbers
+// repeated across unrelated creators. Deleted rather than kept: the card now shows only fields we
+// actually have from the provider, and omits the rest. Do not reintroduce placeholder metrics on a
+// card that also carries the "Unverified estimate from public data" label - that combination
+// presents invented numbers as real scraped data.
 
-const awardSets = [
-  ["Music"],
-  ["Cooking", "Baking"],
-  ["Christianity", "Empowerment", "Motherhood"],
-  ["Healthcare Industry"],
-  ["Beauty UGC", "Short-form"],
-]
+function creatorInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  // Array.from (not charAt) so emoji/surrogate pairs in display names like "Nepli🥵Girls"
+  // don't get sliced into a broken half-character.
+  const letters = words.slice(0, 2).map((word) => Array.from(word)[0] ?? "").join("")
+  return letters.toUpperCase() || "?"
+}
+
+/** Avatar that degrades to initials instead of ever showing someone else's face.
+ *
+ * `creator.image` is a REAL platform CDN url or null. Those urls are short-lived signed links
+ * (~24h) on both IG and TikTok, so a stale row's avatar will 403/404 - hence onError -> initials.
+ * `referrerPolicy="no-referrer"` because the IG/TikTok CDNs can reject hotlinked requests that
+ * carry a foreign Referer.
+ */
+function CreatorAvatar({ creator, className }: { creator: Creator; className: string }) {
+  const [broken, setBroken] = useState(false)
+
+  if (!creator.image || broken) {
+    return (
+      <div className={`${className} grid place-items-center bg-[#eee8df] font-black text-[#8a8175]`}>
+        {creatorInitials(creator.name)}
+      </div>
+    )
+  }
+  return (
+    <div className={`${className} overflow-hidden bg-[#eee8df]`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={creator.image}
+        alt=""
+        className="h-full w-full object-cover"
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+      />
+    </div>
+  )
+}
+
+/** Short platform badge (IG/TT/YT) for a creator's primary platform. */
+function platformBadge(creator: Creator) {
+  const platform = creator.platforms?.[0]?.toLowerCase()
+  if (platform === "instagram") return "IG"
+  if (platform === "tiktok") return "TT"
+  if (platform === "youtube") return "YT"
+  return "--"
+}
 
 function socialTone(platform: string) {
   if (platform === "IG") return "text-[#ff3aa6]"
@@ -357,13 +382,11 @@ export function DiscoverPanel({
               ? [0, 1, 2].map((offset) => creatorWorkSamples[(index + offset) % creatorWorkSamples.length])
               : []
             const isSelected = selectedCreator?.handle === creator.handle
-            const metrics = metricSets[index % metricSets.length]
-            const awards = awardSets[index % awardSets.length]
             const isMoving = movingDecision?.handle === creator.handle
 
             return (
               <article
-                key={`${view}-${creator.handle}`}
+                key={`${view}-${creatorKey(creator)}`}
                 className={`creator-result-card grid gap-4 rounded-[24px] bg-[#fbfaf7] p-3 transition hover:bg-white xl:grid-cols-[128px_minmax(245px,1fr)_292px_160px_180px_124px] xl:items-center ${
                   isSelected ? "ring-2 ring-[#d8d1c7]" : "ring-1 ring-[#e8e2d9]"
                 } ${
@@ -371,7 +394,7 @@ export function DiscoverPanel({
                 }`}
               >
                 <button className="relative h-32 rounded-[22px] bg-[#eee8df] xl:h-[116px]" type="button" onClick={() => openProfile(creator)}>
-                  <div className="h-full overflow-hidden rounded-[22px] bg-cover bg-center" style={{ backgroundImage: `url(${creator.image})` }} />
+                  <CreatorAvatar creator={creator} className="h-full rounded-[22px] text-2xl" />
                   <span className="absolute bottom-2 left-1/2 flex -translate-x-1/2 rounded-full bg-white/95 shadow-sm ring-1 ring-[#e8e2d9]">
                     <span className="group relative grid h-8 w-9 place-items-center rounded-l-full text-[#ef4444] transition hover:bg-[#ef4444] hover:text-white" onClick={(event) => { event.stopPropagation(); rejectCreator(creator) }}>
                       <X className="size-4" aria-hidden="true" />
@@ -393,7 +416,9 @@ export function DiscoverPanel({
                   <button className="block w-full text-left" type="button" onClick={() => openProfile(creator)}>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate text-[15px] font-black text-[#1f252b]">{creator.name}</h3>
-                      <span className="rounded-full bg-[#f0ece5] px-2 py-0.5 text-[10px] font-black text-[#69716b]">{creator.country}</span>
+                      {creator.country && (
+                        <span className="rounded-full bg-[#f0ece5] px-2 py-0.5 text-[10px] font-black text-[#69716b]">{creator.country}</span>
+                      )}
                       {creator.isOnboarded === false && (
                         <span className="rounded-full bg-[#fff5df] px-2 py-0.5 text-[10px] font-black text-[#9b6500]">
                           Not on Nepfluence
@@ -428,27 +453,31 @@ export function DiscoverPanel({
                   ))}
                 </div>
 
+                {/* Real data only. This block previously rendered `metricSets`/`awardSets` -
+                    hardcoded constants cycled by array index (that's where the impossible
+                    "132.94%" engagement rate came from). They were prototype decoration that was
+                    never wired to the API, and showing them beside the "Unverified estimate from
+                    public data" label made fabricated numbers read as real scraped data. Anything
+                    we don't genuinely have is now shown as unavailable rather than invented. */}
+                {/* flex, not a fixed 54px grid column: real follower counts run to 9 digits
+                    (129,200,000) and overflowed a fixed column straight through the label. */}
                 <div className="grid gap-1.5 text-[12px] font-semibold text-[#505852]">
-                  {metrics.map((metric) => (
-                    <div key={`${creator.handle}-${metric.platform}`} className="grid grid-cols-[54px_1fr] items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`grid size-5 place-items-center rounded-full bg-white text-[9px] font-black ring-1 ring-[#e8e2d9] ${socialTone(metric.platform)}`}>
-                          {metric.platform}
-                        </span>
-                        <span>{metric.value}</span>
-                      </span>
-                      {metric.rate && <span className="inline-flex items-center gap-1 text-[#69716b]"><FileText className="size-3 text-[#8a8175]" aria-hidden="true" />{metric.rate}</span>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {awards.map((award, awardIndex) => (
-                    <span key={`${creator.handle}-${award}`} className="inline-flex h-6 items-center gap-1 rounded-full bg-[#f0ece5] px-2.5 text-[12px] font-black text-[#505852]">
-                      <Star className={`size-3 ${awardIndex === 1 ? "text-[#98a2b3]" : "text-[#f5b301]"}`} aria-hidden="true" />
-                      {award}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`grid size-5 shrink-0 place-items-center rounded-full bg-white text-[9px] font-black ring-1 ring-[#e8e2d9] ${socialTone(platformBadge(creator))}`}>
+                      {platformBadge(creator)}
                     </span>
-                  ))}
+                    <span className="font-black text-[#1f252b]">
+                      {creator.followers && creator.followers !== "0" ? creator.followers : "—"}
+                    </span>
+                    <span className="text-[#8a8175]">followers</span>
+                  </div>
+                  {creator.engagementRate != null && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <FileText className="size-3 shrink-0 text-[#8a8175]" aria-hidden="true" />
+                      <span className="font-black text-[#1f252b]">{creator.engagementRate}%</span>
+                      <span className="text-[#8a8175]">engagement</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 xl:justify-end">
@@ -764,9 +793,9 @@ function ContactModal({
             <h2 className="text-base font-black text-[#1f252b]">Contact {creator.name}</h2>
             <p className="mt-1 text-xs font-semibold text-[#69716b]">{creator.handle} - {creator.niche}</p>
             <div className="mt-4 flex items-center gap-3 rounded-[20px] bg-white p-3 ring-1 ring-[#e8e2d9]">
-              <div className="size-12 rounded-full bg-cover bg-center shadow-sm" style={{ backgroundImage: `url(${creator.image})` }} />
+              <CreatorAvatar creator={creator} className="size-12 rounded-full text-sm shadow-sm" />
               <div>
-                <p className="text-sm font-black text-[#1f252b]">{creator.country}</p>
+                <p className="text-sm font-black text-[#1f252b]">{creator.country ?? "Country unknown"}</p>
                 <p className="text-xs font-semibold text-[#69716b]">Creator profile</p>
               </div>
             </div>
@@ -775,7 +804,7 @@ function ContactModal({
           <section className="min-h-0 p-5">
             {tab === "channels" && (
               <div className="mx-auto flex h-full max-w-sm flex-col items-center justify-center text-center">
-                <div className="size-20 rounded-full bg-cover bg-center shadow-[0_14px_32px_rgba(15,23,42,0.16)] ring-4 ring-white" style={{ backgroundImage: `url(${creator.image})` }} />
+                <CreatorAvatar creator={creator} className="size-20 rounded-full text-xl shadow-[0_14px_32px_rgba(15,23,42,0.16)] ring-4 ring-white" />
                 <h3 className="mt-5 text-lg font-black text-[#1f252b]">Ready to team up with {creator.name}?</h3>
                 <p className="mt-2 text-xs font-semibold leading-5 text-[#69716b]">
                   Prepare an email outreach draft for this creator, or learn how in-app messaging unlocks.
@@ -827,7 +856,9 @@ function ContactModal({
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <span className="rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-black text-[#344054]">{creator.niche}</span>
-                  <span className="rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-black text-[#344054]">{creator.country}</span>
+                  {creator.country && (
+                    <span className="rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-black text-[#344054]">{creator.country}</span>
+                  )}
                   <span className="rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs font-black text-[#344054]">Brand fit</span>
                 </div>
               </div>
@@ -873,18 +904,34 @@ function getCreatorPlatforms(creator: Creator): ConnectedPlatform[] {
   return platforms.length > 0 ? Array.from(new Set(platforms)) : []
 }
 
-function platformMetrics(creator: Creator, platform: ConnectedPlatform) {
-  const seed = creator.handle.length + platform.length
-  const views = platform === "youtube" ? `${Math.max(18, seed * 9)}K` : `${Math.max(12, seed * 7)}K`
-  const engagement = platform === "tiktok" ? `${((seed % 8) + 2.1).toFixed(2)}%` : `${((seed % 6) + 3.2).toFixed(2)}%`
+const NOT_AVAILABLE = "Not available"
 
+/** Real provider metrics only.
+ *
+ * This previously synthesised every value except Followers from
+ * `seed = creator.handle.length + platform.length` - e.g. `views = seed * 9`,
+ * `engagement = (seed % 8) + 2.1`. Those were invented numbers attached to a named real person's
+ * profile, under a "public data" label. Now: show what the provider actually returned, and say
+ * "Not available" for what it didn't. Avg. likes/shares/comments are dropped entirely - TikHub
+ * exposes no such aggregate, so there is no honest value to show.
+ *
+ * Everything here is currently null for TikHub except Followers, because its posts endpoints are
+ * paywalled/broken (see the module notes). That's the true state of the data.
+ */
+function platformMetrics(creator: Creator) {
   return [
-    { label: "Followers", value: creator.followers },
-    { label: "Avg. engagement rate", value: engagement },
-    { label: "Avg. views", value: views },
-    { label: "Avg. likes", value: `${Math.max(1, seed % 9)}.${seed % 10}K` },
-    { label: "Avg. shares", value: `${Math.max(18, seed * 4)}` },
-    { label: "Avg. comments", value: `${Math.max(9, seed * 2)}` },
+    { label: "Followers", value: creator.followers || NOT_AVAILABLE },
+    {
+      label: "Avg. engagement rate",
+      value: creator.engagementRate != null ? `${creator.engagementRate}%` : NOT_AVAILABLE,
+    },
+    {
+      label: "Avg. views",
+      value:
+        creator.recentPostAvgViews != null
+          ? creator.recentPostAvgViews.toLocaleString("en-US")
+          : NOT_AVAILABLE,
+    },
   ]
 }
 
@@ -892,9 +939,8 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
   const connectedPlatforms = getCreatorPlatforms(creator)
   const profilePlatforms = connectedPlatforms.length > 0 ? connectedPlatforms : (["instagram"] as ConnectedPlatform[])
   const [activePlatform, setActivePlatform] = useState<ConnectedPlatform>(profilePlatforms[0])
-  const metrics = platformMetrics(creator, activePlatform)
+  const metrics = platformMetrics(creator)
   const samples = creatorWorkSamples.slice(0, 3)
-  const heatValues = Array.from({ length: 42 }, (_, index) => ((index * creator.handle.length + activePlatform.length) % 10))
   useEscapeKey(true, onClose)
 
   return (
@@ -902,11 +948,13 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
       <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[12px] border border-[#e8e2d9] bg-[#fbfaf7] shadow-[0_24px_80px_rgba(31,37,43,0.2)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-[#e8e2d9] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="size-11 shrink-0 overflow-hidden rounded-[8px] bg-[#eee8df] bg-cover bg-center" style={{ backgroundImage: `url(${creator.image})` }} />
+            <CreatorAvatar creator={creator} className="size-11 shrink-0 rounded-[8px] text-xs" />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="truncate text-base font-black tracking-tight text-[#1f252b]">{creator.name}</h2>
-                <span className="rounded-full bg-[#f0ece5] px-2 py-0.5 text-[10px] font-black text-[#69716b]">{creator.country}</span>
+                {creator.country && (
+                  <span className="rounded-full bg-[#f0ece5] px-2 py-0.5 text-[10px] font-black text-[#69716b]">{creator.country}</span>
+                )}
               </div>
               <p className="mt-1 text-xs font-black text-[#8a8175]">{creator.handle}</p>
             </div>
@@ -954,64 +1002,21 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
               ))}
             </div>
 
-            <section className="grid gap-4 xl:grid-cols-[320px_1fr]">
-              <div className="rounded-[8px] border border-[#e8e2d9] bg-white p-4">
-                <h3 className="text-sm font-black text-[#1f252b]">Compare to similar creators</h3>
-                <div className="mt-5 grid gap-5">
-                  {["Engagement", "Views", "Likes", "Comments"].map((label, index) => (
-                    <div key={label}>
-                      <div className="mb-2 flex items-center justify-between text-xs font-bold text-[#69716b]">
-                        <span>{label}</span>
-                        <span>{index === 3 ? "bottom 15%" : "bottom 10%"}</span>
-                        <span className="grid size-7 place-items-center rounded-[8px] bg-[#a9a197] text-[11px] font-black text-white">
-                          {index === 3 ? "D-" : "F"}
-                        </span>
-                      </div>
-                      <div className="h-px bg-[#1f252b]">
-                        <span className="block size-4 -translate-y-2 rounded-full border-2 border-white bg-cover bg-center shadow" style={{ marginLeft: `${12 + index * 8}%`, backgroundImage: `url(${creator.image})` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <h3 className="mt-7 text-sm font-black text-[#1f252b]">Post per day</h3>
-                <div className="mt-4 grid gap-1" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
-                  {heatValues.slice(0, 42).map((value, index) => (
-                    <span key={index} className={`size-3 rounded-[2px] ${value > 6 ? "bg-[#1f252b]" : value > 3 ? "bg-[#b8afa3]" : "bg-[#ede8df]"}`} />
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[8px] border border-[#e8e2d9] bg-white p-4">
-                <div className="mb-3 flex items-center gap-4 text-xs font-black text-[#505852]">
-                  <span className="inline-flex items-center gap-1"><span className="h-0.5 w-5 bg-[#1f252b]" />Avg. engagements</span>
-                  <span className="inline-flex items-center gap-1"><span className="h-4 w-1 rounded-full bg-[#d8d1c7]" />Community</span>
-                </div>
-                <div className="relative h-44 border-y border-[#ede8df]">
-                  <div className="absolute inset-x-0 top-1/3 border-t border-[#ede8df]" />
-                  <div className="absolute inset-x-0 top-2/3 border-t border-[#ede8df]" />
-                  <div className="absolute bottom-4 left-8 right-8 flex items-end justify-between gap-2">
-                    {Array.from({ length: 24 }, (_, index) => (
-                      <span key={index} className="w-3 rounded-t bg-[#d8d1c7]" style={{ height: `${46 + (index % 6) * 2}px` }} />
-                    ))}
-                  </div>
-                  <svg className="absolute inset-0 h-full w-full" viewBox="0 0 500 176" preserveAspectRatio="none" aria-hidden="true">
-                    <polyline fill="none" stroke="#1f252b" strokeWidth="2" points="38,52 100,78 160,116 230,122 305,118 382,130 458,148" />
-                  </svg>
-                </div>
-
-                <h3 className="mt-5 text-sm font-black text-[#1f252b]">Average engagements by publication time</h3>
-                <div className="mt-3 grid grid-cols-8 gap-2 text-center text-xs font-black">
-                  {Array.from({ length: 56 }, (_, index) => {
-                    const value = (index * creator.name.length + activePlatform.length) % 11
-                    return (
-                      <span key={index} className={`rounded-[6px] py-2 ${value > 7 ? "bg-[#1f252b] text-white" : value > 4 ? "bg-[#a9a197] text-white" : "bg-[#ede8df] text-[#1f252b]"}`}>
-                        {value > 6 ? `${value * 73}` : "-"}
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
+            {/* A "Compare to similar creators" panel, a "Post per day" heatmap, an engagement
+                chart and a "publication time" grid used to sit here. Every one was fabricated:
+                the comparison hardcoded an "F" grade and "bottom 10%" for EVERY creator, the
+                heatmap/grid were seeded off `creator.handle.length` / `creator.name.length`, and
+                the chart was a fixed SVG polyline. Presenting invented analytics about a named
+                real person - and grading them "F" - is not a placeholder, it's a false statement
+                about someone. Removed, not restyled. Re-add only when backed by a real source
+                (verified OAuth analytics, per the plan's verified plane). */}
+            <section className="rounded-[8px] border border-dashed border-[#ded8cf] bg-white p-5 text-center">
+              <p className="text-sm font-black text-[#1f252b]">Detailed analytics aren&apos;t available yet</p>
+              <p className="mx-auto mt-2 max-w-lg text-xs font-semibold leading-5 text-[#69716b]">
+                {creator.isOnboarded === false
+                  ? "Public data only shows the follower count above. Engagement, views and audience breakdowns need this creator to join Nepfluence and connect their account."
+                  : "This creator hasn't connected a social account yet, so there are no verified metrics to show."}
+              </p>
             </section>
 
             <section className="mt-4">
@@ -1040,10 +1045,28 @@ function CreatorProfileModal({ creator, onClose, onContact }: { creator: Creator
                   <p className="text-xs font-semibold text-[#69716b]">{platformLabels[activePlatform].label}</p>
                 </div>
               </div>
+              {/* "Effectiveness: Good fit", "Posting cadence: 3-5 weekly" and "Brand safety:
+                  Clear" were hardcoded here - identical for every creator. "Brand safety: Clear"
+                  is the most dangerous fabrication in this file: it asserts that an unvetted,
+                  scraped account is safe to hand money to. We run no brand-safety check of any
+                  kind. Removed. Only re-add with a real signal behind it. */}
               <div className="mt-4 grid gap-3 text-xs font-semibold text-[#69716b]">
-                <div className="flex justify-between"><span>Effectiveness</span><b className="text-[#1f252b]">Good fit</b></div>
-                <div className="flex justify-between"><span>Posting cadence</span><b className="text-[#1f252b]">3-5 weekly</b></div>
-                <div className="flex justify-between"><span>Brand safety</span><b className="text-[#16864f]">Clear</b></div>
+                <div className="flex justify-between">
+                  <span>Followers</span>
+                  <b className="text-[#1f252b]">{creator.followers || "Not available"}</b>
+                </div>
+                {creator.statsAsOf && (
+                  <div className="flex justify-between">
+                    <span>Data as of</span>
+                    <b className="text-[#1f252b]">{new Date(creator.statsAsOf).toLocaleDateString()}</b>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Source</span>
+                  <b className="text-[#1f252b]">
+                    {creator.isOnboarded === false ? "Public data (unverified)" : "Nepfluence profile"}
+                  </b>
+                </div>
               </div>
             </div>
 
